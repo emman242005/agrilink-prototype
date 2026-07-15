@@ -10,6 +10,7 @@ export default {
         gold: "#C9A45C",
         paper: "#FAF9F6",
         ink: "#1C1C1A",
+        mint:"#8FD9B6",
       },
       fontFamily: {
         display: ["Fraunces", "serif"],
