@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import orangeLogo from "../assets/images/logo.png";
+import mtnLogo from "../assets/images/logo2.png";
+
+const PROVIDERS = [
+  { key: "Orange", logo: orangeLogo },
+  { key: "MTN", logo: mtnLogo },
+];
 
 export default function PaymentSettingsModal({ userId, currentProvider, currentNumber, onClose, onSaved }) {
   const [provider, setProvider] = useState(currentProvider || "MTN");
@@ -40,15 +47,18 @@ export default function PaymentSettingsModal({ userId, currentProvider, currentN
           <div>
             <p className="text-sm font-medium text-ink/80 mb-2">Provider</p>
             <div className="grid grid-cols-2 gap-2">
-              {["MTN", "Orange"].map((p) => (
+              {PROVIDERS.map((p) => (
                 <button
-                  key={p}
-                  onClick={() => setProvider(p)}
-                  className={`text-sm font-medium py-2.5 rounded-lg border transition ${
-                    provider === p ? "bg-forest text-paper border-forest" : "border-forest/20 text-forest/70 hover:bg-forest/5"
+                  key={p.key}
+                  onClick={() => setProvider(p.key)}
+                  className={`flex flex-col items-center gap-2 py-3 rounded-lg border transition ${
+                    provider === p.key ? "bg-forest/5 border-forest" : "border-forest/20 hover:bg-forest/5"
                   }`}
                 >
-                  {p} Mobile Money
+                  <img src={p.logo} alt={p.key} className="h-8 object-contain" />
+                  <span className={`text-xs font-medium ${provider === p.key ? "text-forest" : "text-forest/60"}`}>
+                    {p.key} Mobile Money
+                  </span>
                 </button>
               ))}
             </div>
