@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import bgImage from "../assets/images/pic1.png";
 
 export default function SignUp() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
@@ -58,14 +59,21 @@ export default function SignUp() {
 
 export function AuthShell({ title, subtitle, children }) {
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center px-6">
-      <div className="max-w-sm w-full">
+    <div
+      className="min-h-screen flex items-center justify-center px-6 relative"
+      style={{
+        backgroundImage: `linear-gradient(rgba(15, 42, 30, 0.55), rgba(15, 42, 30, 0.75)), url(${bgImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="max-w-sm w-full relative">
         <div className="text-center mb-8">
-          <span className="font-display text-2xl font-semibold text-forest">AgriLink</span>
-          <h1 className="font-display text-xl font-semibold text-ink mt-4">{title}</h1>
-          {subtitle && <p className="text-sm text-sage mt-1">{subtitle}</p>}
+          <span className="font-display text-2xl font-semibold text-paper">AgriLink</span>
+          <h1 className="font-display text-xl font-semibold text-paper mt-4">{title}</h1>
+          {subtitle && <p className="text-sm text-paper/70 mt-1">{subtitle}</p>}
         </div>
-        {children}
+        <div className="bg-paper rounded-2xl p-6 shadow-xl">{children}</div>
       </div>
     </div>
   );
