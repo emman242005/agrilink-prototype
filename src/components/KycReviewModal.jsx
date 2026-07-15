@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { computeRiskScore, RISK_BAND_STYLES } from "../lib/riskScore";
 
 const DOC_FIELDS = [
   { key: "land_document_url", label: "Land document" },
@@ -69,6 +70,8 @@ export default function KycReviewModal({ submission, onClose, onApprove, onDeny 
             />
           </div>
 
+          <RiskScoreCard kyc={submission} />
+
           <h3 className="font-display text-sm font-semibold text-forest mb-3">Documents</h3>
           {loadingDocs && <p className="text-sm text-sage">Loading documents…</p>}
           <div className="grid grid-cols-3 gap-3 mb-6">
@@ -133,6 +136,29 @@ export default function KycReviewModal({ submission, onClose, onApprove, onDeny 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function RiskScoreCard({ kyc }) {
+  const { score, maxScore, band, breakdown } = computeRiskScore(kyc);
+  const style = RISK_BAND_STYLES[band];
+
+  return (
+    <div className="bg-forest/5 rounded-xl p-4 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-display text-sm font-semibold text-forest">Risk score</h3>
+        <span className={`font-mono text-xs px-2.5 py-1 rounded-full ${style.className}`}>
+          {score}/{maxScore} · {style.label}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+        {breakdown.map((item) => (
+          <p key={item.label} className={`text-xs ${item.earned > 0 ? "text-ink/70" : "text-sage/60 line-through"}`}>
+            {item.label} ({item.earned}/{item.max})
+          </p>
+        ))}
+      </div>
     </div>
   );
 }

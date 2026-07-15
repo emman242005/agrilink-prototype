@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import KycReviewModal from "../components/KycReviewModal";
 import LoanReviewModal from "../components/LoanReviewModal";
+import { computeRiskScore, RISK_BAND_STYLES } from "../lib/riskScore";
 
 export default function AdminControlCentre() {
   const { session, signOut } = useAuth();
@@ -276,7 +277,7 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
         ))}
       </nav>
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v0.9 prototype</p>
+        <p className="font-mono text-[10px] text-paper/30">v1.0 prototype</p>
       </div>
     </aside>
   );
@@ -298,6 +299,10 @@ function TopBar({ email, onSignOut, tab }) {
 }
 
 function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursement, totalDisbursed, kycQueue, loanQueue, setTab }) {
+  const avgRiskScore = kycQueue.length > 0
+    ? Math.round(kycQueue.reduce((sum, k) => sum + computeRiskScore(k).score, 0) / kycQueue.length)
+    : 0;
+
   const recentActivity = [...kycQueue, ...loanQueue].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)).slice(0, 6);
   const growthData = buildGrowthData(kycQueue);
   const volumeData = buildVolumeData(loanQueue);
@@ -305,12 +310,13 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
 
   return (
     <div>
-      <div className="grid grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-6 gap-4 mb-8">
         <StatTile label="Registered farmers" value={uniqueFarmers} />
         <StatTile label="Pending KYC" value={pendingKyc} accent={pendingKyc > 0 ? "gold" : null} onClick={() => setTab("kyc")} />
         <StatTile label="Pending loans" value={pendingLoans} accent={pendingLoans > 0 ? "gold" : null} onClick={() => setTab("loans")} />
         <StatTile label="Awaiting disbursement" value={awaitingDisbursement} accent={awaitingDisbursement > 0 ? "gold" : null} onClick={() => setTab("loans")} />
         <StatTile label="Total disbursed" value={`${totalDisbursed.toLocaleString()} XAF`} mono />
+        <StatTile label="Avg. risk score" value={`${avgRiskScore}/100`} mono />
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-8">
@@ -452,6 +458,7 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
             <th className="px-5 py-3 font-medium">Farmer</th>
             <th className="px-5 py-3 font-medium">Crop / farm</th>
             <th className="px-5 py-3 font-medium">Region</th>
+            <th className="px-5 py-3 font-medium text-right">Risk score</th>
             <th className="px-5 py-3 font-medium">Submitted</th>
             <th className="px-5 py-3 font-medium text-right">Status</th>
             <th className="px-5 py-3 font-medium text-right">Action</th>
@@ -460,7 +467,7 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
         <tbody>
           {kycQueue.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No KYC submissions yet.</td>
+              <td colSpan={8} className="px-5 py-8 text-center text-sage text-sm">No KYC submissions yet.</td>
             </tr>
           )}
           {kycQueue.map((k) => (
@@ -472,6 +479,7 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
               </td>
               <td className="px-5 py-3.5 text-ink/70">{k.crop} · {k.farm_size}</td>
               <td className="px-5 py-3.5 text-ink/70">{k.region}</td>
+              <td className="px-5 py-3.5 text-right"><RiskBadge kyc={k} /></td>
               <td className="px-5 py-3.5 font-mono text-xs text-sage">{new Date(k.submitted_at).toLocaleDateString()}</td>
               <td className="px-5 py-3.5 text-right"><StatusBadge status={k.status} /></td>
               <td className="px-5 py-3.5 text-right">
@@ -493,6 +501,16 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
         />
       )}
     </div>
+  );
+}
+
+function RiskBadge({ kyc }) {
+  const { score, maxScore, band } = computeRiskScore(kyc);
+  const style = RISK_BAND_STYLES[band];
+  return (
+    <span className={`font-mono text-[10px] px-2.5 py-1 rounded-full ${style.className}`}>
+      {score}/{maxScore} · {style.label}
+    </span>
   );
 }
 

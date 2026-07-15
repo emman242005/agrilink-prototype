@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { computeRiskScore, RISK_BAND_STYLES } from "../lib/riskScore";
 
 const KYC_DOC_FIELDS = [
   { key: "land_document_url", label: "Land document (KYC)" },
@@ -15,6 +16,7 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
   const [docUrls, setDocUrls] = useState({});
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [lightbox, setLightbox] = useState(null);
+  const [kycData, setKycData] = useState(null);
   const [rate, setRate] = useState("12");
   const [term, setTerm] = useState(String(loan.preferred_duration_months || 6));
 
@@ -41,6 +43,8 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
         .order("submitted_at", { ascending: false })
         .limit(1)
         .single();
+
+      setKycData(kyc);
 
       if (kyc) {
         for (const doc of KYC_DOC_FIELDS) {
@@ -94,6 +98,8 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
               }
             />
           </div>
+
+          {kycData && <RiskScoreInline kyc={kycData} />}
 
           <h3 className="font-display text-sm font-semibold text-forest mb-3">Documents</h3>
           {loadingDocs && <p className="text-sm text-sage mb-4">Loading documents…</p>}
@@ -183,6 +189,19 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function RiskScoreInline({ kyc }) {
+  const { score, maxScore, band } = computeRiskScore(kyc);
+  const style = RISK_BAND_STYLES[band];
+  return (
+    <div className="flex items-center justify-between bg-forest/5 rounded-xl px-4 py-3 mb-6">
+      <span className="text-sm font-medium text-forest">Risk score</span>
+      <span className={`font-mono text-xs px-2.5 py-1 rounded-full ${style.className}`}>
+        {score}/{maxScore} · {style.label}
+      </span>
     </div>
   );
 }
