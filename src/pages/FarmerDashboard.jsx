@@ -94,7 +94,7 @@ export default function FarmerDashboard() {
         >
           <div>
             <p className="font-mono text-xs text-paper/70 mb-1">{today}</p>
-            <h1 className="font-display text-3xl font-semibold text-paper">
+            <h1 className="font-display text-2xl md:text-3xl font-semibold text-paper">
               Welcome back, {profile?.full_name?.split(" ")[0] || "Farmer"}
             </h1>
           </div>
@@ -122,7 +122,7 @@ export default function FarmerDashboard() {
         )}
 
         {/* Bento metrics grid */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <MetricCard
             icon={<Sprout size={18} />}
             label="Crop yield"
@@ -172,8 +172,8 @@ export default function FarmerDashboard() {
         </div>
 
         {/* Map + activity row */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="col-span-2 bg-white border border-forest/10 rounded-2xl p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="md:col-span-2 bg-white border border-forest/10 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <MapPin size={16} className="text-forest" />
               <h2 className="font-display text-base font-semibold text-forest">Farm plots</h2>
@@ -282,7 +282,7 @@ function MetricCard({ icon, label, value, sub, accent, mono }) {
   );
 }
 
-function Pipeline({ status }) {
+function({ status }) {
   const steps = [
     { key: "applied", label: "Applied", done: true },
     { key: "verified", label: "Verified", done: true },
