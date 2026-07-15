@@ -1,15 +1,24 @@
 import { useAuth } from "../context/AuthContext";
 import NotificationBell from "../components/NotificationBell";
+import bgImage from "../assets/images/pic2.png";
 
 export default function Pending() {
   const { session, signOut } = useAuth();
 
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center px-6">
+    <div
+      className="min-h-screen flex items-center justify-center px-6 relative"
+      style={{
+        backgroundImage: `linear-gradient(rgba(15, 42, 30, 0.6), rgba(15, 42, 30, 0.75)), url(${bgImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
       <div className="absolute top-6 right-6">
         <NotificationBell userId={session.user.id} />
       </div>
-      <div className="max-w-sm text-center">
+
+      <div className="max-w-sm text-center bg-paper rounded-2xl p-8 shadow-xl">
         <div className="w-14 h-14 mx-auto rounded-full bg-gold/15 flex items-center justify-center mb-5">
           <span className="text-gold text-2xl">⏳</span>
         </div>
