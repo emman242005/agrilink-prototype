@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import {
   Sprout, Droplets, Wallet, ShieldCheck, MapPin, Plus,
-  ArrowRight, CheckCircle2, Circle, Clock3, Wheat, TrendingUp,
+  CheckCircle2, Circle, Clock3, Wheat,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import { Field } from "./SignUp";
 import NotificationBell from "../components/NotificationBell";
+import LoanApplicationWizard from "../components/LoanApplicationWizard";
 
 export default function FarmerDashboard() {
   const { session, profile, signOut } = useAuth();
@@ -14,8 +14,6 @@ export default function FarmerDashboard() {
   const [repayments, setRepayments] = useState({});
   const [showForm, setShowForm] = useState(false);
   const [showCropNote, setShowCropNote] = useState(false);
-  const [form, setForm] = useState({ amount: "", purpose: "" });
-  const [submitting, setSubmitting] = useState(false);
 
   const loadLoans = async () => {
     const { data } = await supabase
@@ -51,20 +49,6 @@ export default function FarmerDashboard() {
       loadRepayments(loans.filter((l) => l.status === "approved").map((l) => l.id));
     }
   }, [loans]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    await supabase.from("loan_applications").insert({
-      user_id: session.user.id,
-      amount_requested: Number(form.amount),
-      purpose: form.purpose,
-    });
-    setSubmitting(false);
-    setShowForm(false);
-    setForm({ amount: "", purpose: "" });
-    loadLoans();
-  };
 
   const latestLoan = loans[0];
   const totalDisbursed = loans
@@ -215,41 +199,13 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {/* Application form */}
+        {/* Loan application wizard */}
         {showForm && (
-          <form onSubmit={handleSubmit} className="bg-white border border-forest/10 rounded-2xl p-6 space-y-5 mb-8 max-w-md">
-            <h2 className="font-display text-base font-semibold text-forest">New loan application</h2>
-            <Field
-              label="Amount requested (XAF)"
-              type="number"
-              value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              required
-            />
-            <Field
-              label="Purpose"
-              value={form.purpose}
-              onChange={(e) => setForm({ ...form, purpose: e.target.value })}
-              placeholder="e.g. Seeds and fertilizer for planting season"
-              required
-            />
-            <div className="flex gap-3">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="bg-forest text-paper font-medium px-5 py-2.5 rounded-lg hover:bg-forestdark transition disabled:opacity-60"
-              >
-                {submitting ? "Submitting…" : "Submit application"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="px-5 py-2.5 rounded-lg border border-forest/20 text-forest/70 hover:bg-forest/5"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+          <LoanApplicationWizard
+            userId={session.user.id}
+            onClose={() => setShowForm(false)}
+            onSuccess={() => { setShowForm(false); loadLoans(); }}
+          />
         )}
 
         {/* Applications list */}
