@@ -282,7 +282,7 @@ function MetricCard({ icon, label, value, sub, accent, mono }) {
   );
 }
 
-function({ status }) {
+function Pipeline({ status }) {
   const steps = [
     { key: "applied", label: "Applied", done: true },
     { key: "verified", label: "Verified", done: true },
@@ -299,7 +299,7 @@ function({ status }) {
             }`}>
               {step.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
             </div>
-            <span className={`text-xs font-medium ${step.done ? "text-forest" : "text-sage"}`}>
+            <span className={`text-[10px] md:text-xs font-medium whitespace-nowrap ${step.done ? "text-forest" : "text-sage"}`}>
               {step.label}
             </span>
           </div>
