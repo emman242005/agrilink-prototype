@@ -1,3 +1,4 @@
+import LoanReviewModal from "../components/LoanReviewModal";
 import { useEffect, useState, Fragment } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -546,9 +547,7 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
 /* ---------- Loans table ---------- */
 
 function LoansTable({ loanQueue, onApprove, onDecline }) {
-  const [termsFor, setTermsFor] = useState(null);
-  const [rate, setRate] = useState("12");
-  const [term, setTerm] = useState("6");
+  const [reviewing, setReviewing] = useState(null);
 
   return (
     <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
@@ -561,7 +560,7 @@ function LoansTable({ loanQueue, onApprove, onDecline }) {
             <th className="px-5 py-3 font-medium text-right">Amount</th>
             <th className="px-5 py-3 font-medium text-right">Terms</th>
             <th className="px-5 py-3 font-medium text-right">Status</th>
-            <th className="px-5 py-3 font-medium text-right">Actions</th>
+            <th className="px-5 py-3 font-medium text-right">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -573,78 +572,42 @@ function LoansTable({ loanQueue, onApprove, onDecline }) {
             </tr>
           )}
           {loanQueue.map((l) => (
-            <Fragment key={l.id}>
-              <tr className="border-b border-forest/5">
-                <td className={`w-1 ${railColor(l.status)}`}></td>
-                <td className="px-5 py-3.5">
-                  <p className="font-medium text-ink">{l.profiles?.full_name || l.profiles?.email}</p>
-                </td>
-                <td className="px-5 py-3.5 text-ink/70">{l.purpose}</td>
-                <td className="px-5 py-3.5 text-right font-mono">
-                  {Number(l.amount_requested).toLocaleString()} XAF
-                </td>
-                <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
-                  {l.status === "approved" ? `${l.interest_rate}% · ${l.term_months}mo` : "—"}
-                </td>
-                <td className="px-5 py-3.5 text-right">
-                  <StatusBadge status={l.status} />
-                </td>
-                <td className="px-5 py-3.5 text-right">
-                  {l.status === "pending" && (
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={() => setTermsFor(termsFor === l.id ? null : l.id)}
-                        className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => onDecline(l, "declined")}
-                        className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest/70 hover:bg-forest/5"
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-              {termsFor === l.id && (
-                <tr className="border-b border-forest/5 bg-forest/[0.015]">
-                  <td></td>
-                  <td colSpan={6} className="px-5 py-4">
-                    <div className="flex items-end gap-4">
-                      <label className="block">
-                        <span className="text-xs font-medium text-ink/70 mb-1 block">Interest rate (%)</span>
-                        <input
-                          type="number"
-                          value={rate}
-                          onChange={(e) => setRate(e.target.value)}
-                          className="w-24 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="text-xs font-medium text-ink/70 mb-1 block">Term (months)</span>
-                        <input
-                          type="number"
-                          value={term}
-                          onChange={(e) => setTerm(e.target.value)}
-                          className="w-24 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
-                        />
-                      </label>
-                      <button
-                        onClick={() => { onApprove(l, Number(rate), Number(term)); setTermsFor(null); }}
-                        className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark"
-                      >
-                        Confirm & generate schedule
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </Fragment>
+            <tr key={l.id} className="border-b border-forest/5 hover:bg-forest/[0.02]">
+              <td className={`w-1 ${railColor(l.status)}`}></td>
+              <td className="px-5 py-3.5">
+                <p className="font-medium text-ink">{l.profiles?.full_name || l.profiles?.email}</p>
+              </td>
+              <td className="px-5 py-3.5 text-ink/70">{l.purpose}</td>
+              <td className="px-5 py-3.5 text-right font-mono">
+                {Number(l.amount_requested).toLocaleString()} XAF
+              </td>
+              <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
+                {l.status === "approved" ? `${l.interest_rate}% · ${l.term_months}mo` : "—"}
+              </td>
+              <td className="px-5 py-3.5 text-right">
+                <StatusBadge status={l.status} />
+              </td>
+              <td className="px-5 py-3.5 text-right">
+                <button
+                  onClick={() => setReviewing(l)}
+                  className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
+                >
+                  Review
+                </button>
+              </td>
+            </tr>
           ))}
         </tbody>
       </table>
+
+      {reviewing && (
+        <LoanReviewModal
+          loan={reviewing}
+          onClose={() => setReviewing(null)}
+          onApprove={onApprove}
+          onDecline={(l) => onDecline(l, "declined")}
+        />
+      )}
     </div>
   );
 }

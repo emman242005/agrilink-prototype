@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import NotificationBell from "../components/NotificationBell";
 import LoanApplicationWizard from "../components/LoanApplicationWizard";
+import bgImage from "../assets/images/pic3.png";
 
 export default function FarmerDashboard() {
   const { session, profile, signOut } = useAuth();
@@ -82,24 +83,31 @@ export default function FarmerDashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Greeting row */}
-        <div className="flex items-end justify-between mb-8 flex-wrap gap-4">
+        {/* Greeting hero band */}
+        <div
+          className="rounded-2xl mb-8 px-6 py-8 md:px-8 md:py-10 flex items-end justify-between flex-wrap gap-4"
+          style={{
+            backgroundImage: `linear-gradient(rgba(15, 42, 30, 0.55), rgba(15, 42, 30, 0.75)), url(${bgImage})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
           <div>
-            <p className="font-mono text-xs text-sage mb-1">{today}</p>
-            <h1 className="font-display text-3xl font-semibold text-forest">
+            <p className="font-mono text-xs text-paper/70 mb-1">{today}</p>
+            <h1 className="font-display text-3xl font-semibold text-paper">
               Welcome back, {profile?.full_name?.split(" ")[0] || "Farmer"}
             </h1>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setShowCropNote(true)}
-              className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full border border-forest/20 text-forest/80 hover:bg-forest/5 transition"
+              className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition"
             >
               <Plus size={16} /> Add crop
             </button>
             <button
               onClick={() => setShowForm(true)}
-              className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full bg-forest text-paper hover:bg-forestdark transition"
+              className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full bg-mint text-forestdark font-semibold hover:brightness-95 transition"
             >
               <Plus size={16} /> Apply for loan
             </button>
