@@ -73,7 +73,6 @@ export default function FarmerDashboard() {
 
   return (
     <div className="min-h-screen bg-paper">
-      {/* Header */}
       <header className="border-b border-forest/10 bg-white sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <span className="font-display text-2xl font-semibold text-forest">AgriLink</span>
@@ -87,7 +86,6 @@ export default function FarmerDashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Greeting hero band */}
         <div
           className="rounded-2xl mb-8 px-6 py-8 md:px-8 md:py-10 flex items-end justify-between flex-wrap gap-4"
           style={{
@@ -143,22 +141,9 @@ export default function FarmerDashboard() {
           </div>
         )}
 
-        {/* Bento metrics grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <MetricCard
-            icon={<Sprout size={18} />}
-            label="Crop yield"
-            value="84%"
-            sub="Healthy · illustrative"
-            accent="mint"
-          />
-          <MetricCard
-            icon={<Droplets size={18} />}
-            label="Soil moisture"
-            value="42%"
-            sub="Rain expected · illustrative"
-            accent="gold"
-          />
+          <MetricCard icon={<Sprout size={18} />} label="Crop yield" value="84%" sub="Healthy · illustrative" accent="mint" />
+          <MetricCard icon={<Droplets size={18} />} label="Soil moisture" value="42%" sub="Rain expected · illustrative" accent="gold" />
           <MetricCard
             icon={<Wallet size={18} />}
             label="Total disbursed"
@@ -176,7 +161,6 @@ export default function FarmerDashboard() {
           />
         </div>
 
-        {/* Loan pipeline */}
         <div className="bg-white border border-forest/10 rounded-2xl p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-display text-base font-semibold text-forest">Loan pipeline</h2>
@@ -193,7 +177,6 @@ export default function FarmerDashboard() {
           )}
         </div>
 
-        {/* Map + activity row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="md:col-span-2 bg-white border border-forest/10 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -214,9 +197,7 @@ export default function FarmerDashboard() {
                 <div key={r.id} className="flex items-start gap-2.5">
                   <Clock3 size={15} className="text-gold mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm text-ink/80">
-                      {Number(r.amount_due).toLocaleString()} XAF due
-                    </p>
+                    <p className="text-sm text-ink/80">{Number(r.amount_due).toLocaleString()} XAF due</p>
                     <p className="font-mono text-xs text-sage">{r.due_date}</p>
                   </div>
                 </div>
@@ -229,7 +210,6 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {/* Loan application wizard */}
         {showForm && (
           <LoanApplicationWizard
             userId={session.user.id}
@@ -238,18 +218,17 @@ export default function FarmerDashboard() {
           />
         )}
 
-        {/* Payment settings modal */}
         {showPayment && (
           <PaymentSettingsModal
             userId={session.user.id}
             currentProvider={profile?.mobile_money_provider}
             currentNumber={profile?.mobile_money_number}
+            currentHolderName={profile?.mobile_money_holder_name}
             onClose={() => setShowPayment(false)}
             onSaved={refreshProfile}
           />
         )}
 
-        {/* Applications list */}
         <h2 className="font-display text-xl font-semibold text-forest mb-4">Your applications</h2>
         {loans.length === 0 && <p className="text-sage text-sm">No loan applications yet.</p>}
         <div className="space-y-3">
@@ -296,8 +275,6 @@ export default function FarmerDashboard() {
   );
 }
 
-/* ---------- Bento pieces ---------- */
-
 function MetricCard({ icon, label, value, sub, accent, mono }) {
   const accentBg = {
     mint: "bg-mint/15 text-mint",
@@ -308,13 +285,9 @@ function MetricCard({ icon, label, value, sub, accent, mono }) {
 
   return (
     <div className="bg-white border border-forest/10 rounded-2xl p-5 hover:border-forest/25 hover:-translate-y-0.5 transition">
-      <div className={`w-9 h-9 rounded-full flex items-center justify-center mb-3 ${accentBg}`}>
-        {icon}
-      </div>
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center mb-3 ${accentBg}`}>{icon}</div>
       <p className="text-xs text-sage mb-1">{label}</p>
-      <p className={`font-display font-semibold text-forest ${mono ? "font-mono text-lg" : "text-2xl"}`}>
-        {value}
-      </p>
+      <p className={`font-display font-semibold text-forest ${mono ? "font-mono text-lg" : "text-2xl"}`}>{value}</p>
       <p className="text-[11px] text-sage/80 mt-1">{sub}</p>
     </div>
   );
@@ -333,9 +306,7 @@ function Pipeline({ status }) {
       {steps.map((step, i) => (
         <div key={step.key} className="flex items-center flex-1 last:flex-none">
           <div className="flex flex-col items-center gap-2">
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-              step.done ? "bg-forest text-paper" : "bg-forest/10 text-sage"
-            }`}>
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center ${step.done ? "bg-forest text-paper" : "bg-forest/10 text-sage"}`}>
               {step.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
             </div>
             <span className={`text-[10px] md:text-xs font-medium whitespace-nowrap ${step.done ? "text-forest" : "text-sage"}`}>
@@ -356,21 +327,13 @@ function FarmPlotGrid() {
     const seed = (i * 37) % 100;
     return seed > 70 ? "healthy" : seed > 40 ? "growing" : "fallow";
   });
-  const plotColor = {
-    healthy: "bg-forest",
-    growing: "bg-mint",
-    fallow: "bg-forest/10",
-  };
+  const plotColor = { healthy: "bg-forest", growing: "bg-mint", fallow: "bg-forest/10" };
 
   return (
     <div>
       <div className="grid grid-cols-8 gap-1.5 mb-4">
         {plots.map((state, i) => (
-          <div
-            key={i}
-            className={`aspect-square rounded-md ${plotColor[state]} hover:scale-110 transition cursor-pointer`}
-            title={state}
-          />
+          <div key={i} className={`aspect-square rounded-md ${plotColor[state]} hover:scale-110 transition cursor-pointer`} title={state} />
         ))}
       </div>
       <div className="flex gap-4 text-xs text-sage">
@@ -397,11 +360,7 @@ function StatusPill({ status }) {
     disbursed: "bg-forest/10 text-forest",
     declined: "bg-red-100 text-red-600",
   };
-  return (
-    <span className={`font-mono text-xs px-3 py-1.5 rounded-full ${styles[status]}`}>
-      {status.toUpperCase()}
-    </span>
-  );
+  return <span className={`font-mono text-xs px-3 py-1.5 rounded-full ${styles[status]}`}>{status.toUpperCase()}</span>;
 }
 
 function RepaymentPill({ status }) {
@@ -411,9 +370,5 @@ function RepaymentPill({ status }) {
     paid: "bg-forest/10 text-forest",
     overdue: "bg-red-100 text-red-600",
   };
-  return (
-    <span className={`font-mono text-[10px] px-2 py-1 rounded-full ${styles[status]}`}>
-      {status.toUpperCase()}
-    </span>
-  );
+  return <span className={`font-mono text-[10px] px-2 py-1 rounded-full ${styles[status]}`}>{status.toUpperCase()}</span>;
 }

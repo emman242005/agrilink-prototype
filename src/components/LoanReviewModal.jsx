@@ -22,7 +22,6 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
     const loadDocs = async () => {
       const urls = {};
 
-      // Loan-specific documents
       for (const [key, path, label] of [
         ["landProof", loan.land_proof_url, "Land proof (loan)"],
         ["farmPhoto", loan.farm_photo_url, "Farm photo (loan)"],
@@ -35,7 +34,6 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
         }
       }
 
-      // Pull the farmer's KYC documents too, for a full review
       const { data: kyc } = await supabase
         .from("kyc_submissions")
         .select("*")
@@ -91,7 +89,7 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
               label="Mobile money"
               value={
                 loan.profiles?.mobile_money_number
-                  ? `${loan.profiles.mobile_money_provider} ${loan.profiles.mobile_money_number}`
+                  ? `${loan.profiles.mobile_money_provider} ${loan.profiles.mobile_money_number} — ${loan.profiles.mobile_money_holder_name || "no name on file"}`
                   : "Not set"
               }
             />

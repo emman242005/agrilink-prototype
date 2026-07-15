@@ -26,7 +26,7 @@ export default function AdminControlCentre() {
   const loadLoans = async () => {
     const { data, error } = await supabase
       .from("loan_applications")
-      .select("*, profiles!loan_applications_user_id_fkey(full_name, email, mobile_money_provider, mobile_money_number)")
+      .select("*, profiles!loan_applications_user_id_fkey(full_name, email, mobile_money_provider, mobile_money_number, mobile_money_holder_name)")
       .order("submitted_at", { ascending: false });
     if (error) console.error("loadLoans error:", error);
     setLoanQueue(data || []);
@@ -50,9 +50,7 @@ export default function AdminControlCentre() {
   const sendEmail = async (to, subject, message) => {
     if (!to) return;
     try {
-      await supabase.functions.invoke("send-notification-email", {
-        body: { to, subject, message },
-      });
+      await supabase.functions.invoke("send-notification-email", { body: { to, subject, message } });
     } catch (err) {
       console.error("Email send failed:", err);
     }
@@ -61,16 +59,9 @@ export default function AdminControlCentre() {
   const decideKyc = async (submission, decision) => {
     await supabase
       .from("kyc_submissions")
-      .update({
-        status: decision,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: session.user.id,
-      })
+      .update({ status: decision, reviewed_at: new Date().toISOString(), reviewed_by: session.user.id })
       .eq("id", submission.id);
-    await supabase
-      .from("profiles")
-      .update({ kyc_status: decision })
-      .eq("id", submission.user_id);
+    await supabase.from("profiles").update({ kyc_status: decision }).eq("id", submission.user_id);
 
     await supabase.from("notifications").insert({
       user_id: submission.user_id,
@@ -95,11 +86,7 @@ export default function AdminControlCentre() {
   const decideLoan = async (loan, decision) => {
     await supabase
       .from("loan_applications")
-      .update({
-        status: decision,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: session.user.id,
-      })
+      .update({ status: decision, reviewed_at: new Date().toISOString(), reviewed_by: session.user.id })
       .eq("id", loan.id);
 
     await supabase.from("notifications").insert({
@@ -202,12 +189,7 @@ export default function AdminControlCentre() {
   const recordPayment = async (repayment, amountPaid, reference) => {
     await supabase
       .from("loan_repayments")
-      .update({
-        amount_paid: amountPaid,
-        status: "paid",
-        paid_at: new Date().toISOString(),
-        payment_reference: reference,
-      })
+      .update({ amount_paid: amountPaid, status: "paid", paid_at: new Date().toISOString(), payment_reference: reference })
       .eq("id", repayment.id);
 
     const loan = loanQueue.find((l) => l.id === repayment.loan_id);
@@ -225,23 +207,13 @@ export default function AdminControlCentre() {
   const pendingKyc = kycQueue.filter((k) => k.status === "pending").length;
   const pendingLoans = loanQueue.filter((l) => l.status === "pending").length;
   const awaitingDisbursement = loanQueue.filter((l) => l.status === "approved").length;
-  const totalDisbursed = loanQueue
-    .filter((l) => l.status === "disbursed")
-    .reduce((sum, l) => sum + Number(l.amount_requested), 0);
+  const totalDisbursed = loanQueue.filter((l) => l.status === "disbursed").reduce((sum, l) => sum + Number(l.amount_requested), 0);
   const uniqueFarmers = new Set(kycQueue.map((k) => k.user_id)).size;
-  const dueOrOverdue = repayments.filter(
-    (r) => r.status !== "paid" && new Date(r.due_date) <= new Date()
-  ).length;
+  const dueOrOverdue = repayments.filter((r) => r.status !== "paid" && new Date(r.due_date) <= new Date()).length;
 
   return (
     <div className="min-h-screen bg-paper flex">
-      <Sidebar
-        tab={tab}
-        setTab={setTab}
-        pendingKyc={pendingKyc}
-        pendingLoans={pendingLoans}
-        dueOrOverdue={dueOrOverdue}
-      />
+      <Sidebar tab={tab} setTab={setTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar email={session?.user?.email} onSignOut={signOut} tab={tab} />
@@ -259,27 +231,16 @@ export default function AdminControlCentre() {
               setTab={setTab}
             />
           )}
-          {tab === "kyc" && (
-            <KycTable kycQueue={kycQueue} onApprove={decideKyc} onDeny={decideKyc} />
-          )}
+          {tab === "kyc" && <KycTable kycQueue={kycQueue} onApprove={decideKyc} onDeny={decideKyc} />}
           {tab === "loans" && (
-            <LoansTable
-              loanQueue={loanQueue}
-              onApprove={approveLoanWithTerms}
-              onDecline={decideLoan}
-              onDisburse={markDisbursed}
-            />
+            <LoansTable loanQueue={loanQueue} onApprove={approveLoanWithTerms} onDecline={decideLoan} onDisburse={markDisbursed} />
           )}
-          {tab === "repayments" && (
-            <RepaymentsTable repayments={repayments} onRecordPayment={recordPayment} />
-          )}
+          {tab === "repayments" && <RepaymentsTable repayments={repayments} onRecordPayment={recordPayment} />}
         </main>
       </div>
     </div>
   );
 }
-
-/* ---------- Sidebar ---------- */
 
 function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
   const items = [
@@ -295,16 +256,13 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
         <span className="font-display text-xl font-semibold text-paper">AgriLink</span>
         <p className="font-mono text-[10px] text-gold tracking-widest mt-1">CONTROL CENTRE</p>
       </div>
-
       <nav className="flex-1 px-3 py-5 space-y-1">
         {items.map((item) => (
           <button
             key={item.key}
             onClick={() => setTab(item.key)}
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition ${
-              tab === item.key
-                ? "bg-paper/10 text-paper"
-                : "text-paper/50 hover:text-paper/80 hover:bg-paper/5"
+              tab === item.key ? "bg-paper/10 text-paper" : "text-paper/50 hover:text-paper/80 hover:bg-paper/5"
             }`}
           >
             <span className="flex items-center gap-2.5">
@@ -312,22 +270,17 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
               {item.label}
             </span>
             {item.badge > 0 && (
-              <span className="bg-gold text-forestdark text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full">
-                {item.badge}
-              </span>
+              <span className="bg-gold text-forestdark text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full">{item.badge}</span>
             )}
           </button>
         ))}
       </nav>
-
       <div className="px-6 py-4 border-t border-paper/10">
         <p className="font-mono text-[10px] text-paper/30">v0.9 prototype</p>
       </div>
     </aside>
   );
 }
-
-/* ---------- Top bar ---------- */
 
 function TopBar({ email, onSignOut, tab }) {
   const titles = { overview: "Overview", kyc: "KYC Review", loans: "Loan Approvals", repayments: "Repayments" };
@@ -336,10 +289,7 @@ function TopBar({ email, onSignOut, tab }) {
       <h1 className="font-display text-lg font-semibold text-forest">{titles[tab]}</h1>
       <div className="flex items-center gap-4">
         <span className="font-mono text-xs text-sage">{email}</span>
-        <button
-          onClick={onSignOut}
-          className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest/70 hover:bg-forest/5"
-        >
+        <button onClick={onSignOut} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest/70 hover:bg-forest/5">
           Log out
         </button>
       </div>
@@ -347,13 +297,8 @@ function TopBar({ email, onSignOut, tab }) {
   );
 }
 
-/* ---------- Overview ---------- */
-
 function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursement, totalDisbursed, kycQueue, loanQueue, setTab }) {
-  const recentActivity = [...kycQueue, ...loanQueue]
-    .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))
-    .slice(0, 6);
-
+  const recentActivity = [...kycQueue, ...loanQueue].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)).slice(0, 6);
   const growthData = buildGrowthData(kycQueue);
   const volumeData = buildVolumeData(loanQueue);
   const funnelData = buildFunnelData(kycQueue);
@@ -417,24 +362,16 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
 
       <h2 className="font-display text-base font-semibold text-forest mb-3">Recent activity</h2>
       <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
-        {recentActivity.length === 0 && (
-          <p className="text-sage text-sm px-5 py-6">No activity yet.</p>
-        )}
+        {recentActivity.length === 0 && <p className="text-sage text-sm px-5 py-6">No activity yet.</p>}
         {recentActivity.map((item, i) => {
           const isKyc = "national_id" in item;
           return (
-            <div
-              key={item.id}
-              className={`flex items-center gap-4 px-5 py-3 ${i !== 0 ? "border-t border-forest/5" : ""}`}
-            >
+            <div key={item.id} className={`flex items-center gap-4 px-5 py-3 ${i !== 0 ? "border-t border-forest/5" : ""}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${statusDot(item.status)}`} />
               <span className="text-sm text-ink/80 flex-1">
-                {isKyc ? "KYC submission" : "Loan application"} ·{" "}
-                {item.full_name || item.profiles?.full_name || item.profiles?.email}
+                {isKyc ? "KYC submission" : "Loan application"} · {item.full_name || item.profiles?.full_name || item.profiles?.email}
               </span>
-              <span className="font-mono text-xs text-sage">
-                {new Date(item.submitted_at).toLocaleDateString()}
-              </span>
+              <span className="font-mono text-xs text-sage">{new Date(item.submitted_at).toLocaleDateString()}</span>
             </div>
           );
         })}
@@ -461,10 +398,7 @@ function buildGrowthData(kycQueue) {
     if (seen.has(k.user_id)) return;
     seen.add(k.user_id);
     cumulative += 1;
-    points.push({
-      date: new Date(k.submitted_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-      cumulative,
-    });
+    points.push({ date: new Date(k.submitted_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }), cumulative });
   });
   return points;
 }
@@ -499,19 +433,12 @@ function statusDot(status) {
 
 function StatTile({ label, value, accent, mono, onClick }) {
   return (
-    <div
-      onClick={onClick}
-      className={`bg-white border border-forest/10 rounded-xl p-5 ${onClick ? "cursor-pointer hover:border-forest/25 transition" : ""}`}
-    >
+    <div onClick={onClick} className={`bg-white border border-forest/10 rounded-xl p-5 ${onClick ? "cursor-pointer hover:border-forest/25 transition" : ""}`}>
       <p className="text-xs text-sage mb-2">{label}</p>
-      <p className={`font-display font-semibold text-forest ${accent === "gold" ? "text-gold" : "text-forest"} ${mono ? "font-mono text-lg" : "text-2xl"}`}>
-        {value}
-      </p>
+      <p className={`font-display font-semibold text-forest ${accent === "gold" ? "text-gold" : "text-forest"} ${mono ? "font-mono text-lg" : "text-2xl"}`}>{value}</p>
     </div>
   );
 }
-
-/* ---------- KYC table ---------- */
 
 function KycTable({ kycQueue, onApprove, onDeny }) {
   const [reviewing, setReviewing] = useState(null);
@@ -533,9 +460,7 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
         <tbody>
           {kycQueue.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">
-                No KYC submissions yet.
-              </td>
+              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No KYC submissions yet.</td>
             </tr>
           )}
           {kycQueue.map((k) => (
@@ -547,17 +472,10 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
               </td>
               <td className="px-5 py-3.5 text-ink/70">{k.crop} · {k.farm_size}</td>
               <td className="px-5 py-3.5 text-ink/70">{k.region}</td>
-              <td className="px-5 py-3.5 font-mono text-xs text-sage">
-                {new Date(k.submitted_at).toLocaleDateString()}
-              </td>
+              <td className="px-5 py-3.5 font-mono text-xs text-sage">{new Date(k.submitted_at).toLocaleDateString()}</td>
+              <td className="px-5 py-3.5 text-right"><StatusBadge status={k.status} /></td>
               <td className="px-5 py-3.5 text-right">
-                <StatusBadge status={k.status} />
-              </td>
-              <td className="px-5 py-3.5 text-right">
-                <button
-                  onClick={() => setReviewing(k)}
-                  className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                >
+                <button onClick={() => setReviewing(k)} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
                   Review
                 </button>
               </td>
@@ -577,8 +495,6 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
     </div>
   );
 }
-
-/* ---------- Loans table ---------- */
 
 function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
   const [reviewing, setReviewing] = useState(null);
@@ -602,9 +518,7 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
         <tbody>
           {loanQueue.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">
-                No loan applications yet.
-              </td>
+              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No loan applications yet.</td>
             </tr>
           )}
           {loanQueue.map((l) => (
@@ -615,23 +529,16 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
                   <p className="font-medium text-ink">{l.profiles?.full_name || l.profiles?.email}</p>
                 </td>
                 <td className="px-5 py-3.5 text-ink/70">{l.purpose}</td>
-                <td className="px-5 py-3.5 text-right font-mono">
-                  {Number(l.amount_requested).toLocaleString()} XAF
-                </td>
+                <td className="px-5 py-3.5 text-right font-mono">{Number(l.amount_requested).toLocaleString()} XAF</td>
                 <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
                   {l.profiles?.mobile_money_number
-                    ? `${l.profiles.mobile_money_provider} ${l.profiles.mobile_money_number}`
+                    ? `${l.profiles.mobile_money_provider} ${l.profiles.mobile_money_number} (${l.profiles.mobile_money_holder_name || "no name"})`
                     : "not set"}
                 </td>
-                <td className="px-5 py-3.5 text-right">
-                  <StatusBadge status={l.status} />
-                </td>
+                <td className="px-5 py-3.5 text-right"><StatusBadge status={l.status} /></td>
                 <td className="px-5 py-3.5 text-right">
                   <div className="flex gap-2 justify-end">
-                    <button
-                      onClick={() => setReviewing(l)}
-                      className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5"
-                    >
+                    <button onClick={() => setReviewing(l)} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5">
                       Review
                     </button>
                     {l.status === "approved" && (
@@ -667,10 +574,7 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
                       >
                         Confirm disbursed
                       </button>
-                      <button
-                        onClick={() => setDisbursingId(null)}
-                        className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70"
-                      >
+                      <button onClick={() => setDisbursingId(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
                         Cancel
                       </button>
                     </div>
@@ -683,18 +587,11 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
       </table>
 
       {reviewing && (
-        <LoanReviewModal
-          loan={reviewing}
-          onClose={() => setReviewing(null)}
-          onApprove={onApprove}
-          onDecline={(l) => onDecline(l, "declined")}
-        />
+        <LoanReviewModal loan={reviewing} onClose={() => setReviewing(null)} onApprove={onApprove} onDecline={(l) => onDecline(l, "declined")} />
       )}
     </div>
   );
 }
-
-/* ---------- Repayments table ---------- */
 
 function RepaymentsTable({ repayments, onRecordPayment }) {
   const [payingFor, setPayingFor] = useState(null);
@@ -734,9 +631,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
         <tbody>
           {repayments.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">
-                No repayment schedules yet — approve and disburse a loan to generate one.
-              </td>
+              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet — approve and disburse a loan to generate one.</td>
             </tr>
           )}
           {repayments.map((r) => {
@@ -746,25 +641,16 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                 <tr className="border-b border-forest/5">
                   <td className={`w-1 ${repaymentRailColor(status)}`}></td>
                   <td className="px-5 py-3.5">
-                    <p className="font-medium text-ink">
-                      {r.loan_applications?.profiles?.full_name || r.loan_applications?.profiles?.email}
-                    </p>
+                    <p className="font-medium text-ink">{r.loan_applications?.profiles?.full_name || r.loan_applications?.profiles?.email}</p>
                     <p className="text-xs text-sage">{r.loan_applications?.purpose}</p>
                   </td>
                   <td className="px-5 py-3.5 text-ink/70">#{r.installment_number}</td>
                   <td className="px-5 py-3.5 font-mono text-xs text-sage">{r.due_date}</td>
-                  <td className="px-5 py-3.5 text-right font-mono">
-                    {Number(r.amount_due).toLocaleString()} XAF
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <RepaymentStatusBadge status={status} />
-                  </td>
+                  <td className="px-5 py-3.5 text-right font-mono">{Number(r.amount_due).toLocaleString()} XAF</td>
+                  <td className="px-5 py-3.5 text-right"><RepaymentStatusBadge status={status} /></td>
                   <td className="px-5 py-3.5 text-right">
                     {status !== "paid" && (
-                      <button
-                        onClick={() => startPayment(r)}
-                        className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                      >
+                      <button onClick={() => startPayment(r)} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
                         Record payment
                       </button>
                     )}
@@ -805,10 +691,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                         >
                           Confirm payment
                         </button>
-                        <button
-                          onClick={() => setPayingFor(null)}
-                          className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70"
-                        >
+                        <button onClick={() => setPayingFor(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
                           Cancel
                         </button>
                       </div>
@@ -831,11 +714,7 @@ function RepaymentStatusBadge({ status }) {
     paid: "bg-forest/10 text-forest",
     overdue: "bg-red-100 text-red-600",
   };
-  return (
-    <span className={`font-mono text-[10px] px-2.5 py-1 rounded-full ${styles[status]}`}>
-      {status.toUpperCase()}
-    </span>
-  );
+  return <span className={`font-mono text-[10px] px-2.5 py-1 rounded-full ${styles[status]}`}>{status.toUpperCase()}</span>;
 }
 
 function repaymentRailColor(status) {
@@ -853,11 +732,7 @@ function StatusBadge({ status }) {
     denied: "bg-red-100 text-red-600",
     declined: "bg-red-100 text-red-600",
   };
-  return (
-    <span className={`font-mono text-[10px] px-2.5 py-1 rounded-full ${styles[status]}`}>
-      {status.toUpperCase()}
-    </span>
-  );
+  return <span className={`font-mono text-[10px] px-2.5 py-1 rounded-full ${styles[status]}`}>{status.toUpperCase()}</span>;
 }
 
 function railColor(status) {

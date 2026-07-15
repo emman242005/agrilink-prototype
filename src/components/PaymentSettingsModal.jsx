@@ -9,9 +9,10 @@ const PROVIDERS = [
   { key: "MTN", logo: mtnLogo },
 ];
 
-export default function PaymentSettingsModal({ userId, currentProvider, currentNumber, onClose, onSaved }) {
+export default function PaymentSettingsModal({ userId, currentProvider, currentNumber, currentHolderName, onClose, onSaved }) {
   const [provider, setProvider] = useState(currentProvider || "MTN");
   const [number, setNumber] = useState(currentNumber || "");
+  const [holderName, setHolderName] = useState(currentHolderName || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,10 +22,18 @@ export default function PaymentSettingsModal({ userId, currentProvider, currentN
       setError("Enter a mobile money number.");
       return;
     }
+    if (!holderName.trim()) {
+      setError("Enter the name on the mobile money account.");
+      return;
+    }
     setSaving(true);
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({ mobile_money_provider: provider, mobile_money_number: number.trim() })
+      .update({
+        mobile_money_provider: provider,
+        mobile_money_number: number.trim(),
+        mobile_money_holder_name: holderName.trim(),
+      })
       .eq("id", userId);
     setSaving(false);
     if (updateError) {
@@ -63,6 +72,16 @@ export default function PaymentSettingsModal({ userId, currentProvider, currentN
               ))}
             </div>
           </div>
+          <label className="block">
+            <span className="text-sm font-medium text-ink/80 mb-1.5 block">Name on mobile money account</span>
+            <input
+              type="text"
+              value={holderName}
+              onChange={(e) => setHolderName(e.target.value)}
+              placeholder="e.g. Alobwede Emmanuel"
+              className="w-full border border-forest/20 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-mint/50 focus:border-forest"
+            />
+          </label>
           <label className="block">
             <span className="text-sm font-medium text-ink/80 mb-1.5 block">Mobile money number</span>
             <input
