@@ -1,4 +1,3 @@
-import LoanReviewModal from "../components/LoanReviewModal";
 import { useEffect, useState, Fragment } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -6,6 +5,7 @@ import {
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import KycReviewModal from "../components/KycReviewModal";
+import LoanReviewModal from "../components/LoanReviewModal";
 
 export default function AdminControlCentre() {
   const { session, signOut } = useAuth();
@@ -26,7 +26,7 @@ export default function AdminControlCentre() {
   const loadLoans = async () => {
     const { data, error } = await supabase
       .from("loan_applications")
-      .select("*, profiles!loan_applications_user_id_fkey(full_name, email)")
+      .select("*, profiles!loan_applications_user_id_fkey(full_name, email, mobile_money_provider, mobile_money_number)")
       .order("submitted_at", { ascending: false });
     if (error) console.error("loadLoans error:", error);
     setLoanQueue(data || []);
@@ -149,7 +149,6 @@ export default function AdminControlCentre() {
         status: "approved",
         interest_rate: interestRate,
         term_months: termMonths,
-        disbursed_at: new Date().toISOString(),
         reviewed_at: new Date().toISOString(),
         reviewed_by: session.user.id,
       })
@@ -160,27 +159,54 @@ export default function AdminControlCentre() {
 
     await supabase.from("notifications").insert({
       user_id: loan.user_id,
-      message: `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% over ${termMonths} months.`,
+      message: `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% over ${termMonths} months. It will be disbursed to your mobile money number shortly.`,
       type: "success",
     });
 
     await sendEmail(
       loan.profiles?.email,
       "Your AgriLink loan was approved",
-      `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% interest over ${termMonths} months. Log in to view your repayment schedule.`
+      `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% interest over ${termMonths} months. It will be disbursed to your mobile money number shortly.`
     );
 
     loadLoans();
     loadRepayments();
   };
 
-  const recordPayment = async (repayment, amountPaid) => {
+  const markDisbursed = async (loan, reference) => {
+    await supabase
+      .from("loan_applications")
+      .update({
+        status: "disbursed",
+        disbursed_at: new Date().toISOString(),
+        disbursement_reference: reference,
+        disbursed_by: session.user.id,
+      })
+      .eq("id", loan.id);
+
+    await supabase.from("notifications").insert({
+      user_id: loan.user_id,
+      message: `${Number(loan.amount_requested).toLocaleString()} XAF was disbursed to your ${loan.profiles?.mobile_money_provider || "mobile money"} number. Reference: ${reference}.`,
+      type: "success",
+    });
+
+    await sendEmail(
+      loan.profiles?.email,
+      "Your AgriLink loan has been disbursed",
+      `${Number(loan.amount_requested).toLocaleString()} XAF was sent to your ${loan.profiles?.mobile_money_provider || "mobile money"} number ${loan.profiles?.mobile_money_number || ""}. Reference: ${reference}. Log in to view your repayment schedule.`
+    );
+
+    loadLoans();
+  };
+
+  const recordPayment = async (repayment, amountPaid, reference) => {
     await supabase
       .from("loan_repayments")
       .update({
         amount_paid: amountPaid,
         status: "paid",
         paid_at: new Date().toISOString(),
+        payment_reference: reference,
       })
       .eq("id", repayment.id);
 
@@ -188,7 +214,7 @@ export default function AdminControlCentre() {
     if (loan) {
       await supabase.from("notifications").insert({
         user_id: loan.user_id,
-        message: `Payment of ${amountPaid.toLocaleString()} XAF for installment #${repayment.installment_number} was recorded.`,
+        message: `Payment of ${amountPaid.toLocaleString()} XAF for installment #${repayment.installment_number} was recorded. Ref: ${reference || "—"}.`,
         type: "success",
       });
     }
@@ -198,8 +224,9 @@ export default function AdminControlCentre() {
 
   const pendingKyc = kycQueue.filter((k) => k.status === "pending").length;
   const pendingLoans = loanQueue.filter((l) => l.status === "pending").length;
+  const awaitingDisbursement = loanQueue.filter((l) => l.status === "approved").length;
   const totalDisbursed = loanQueue
-    .filter((l) => l.status === "approved")
+    .filter((l) => l.status === "disbursed")
     .reduce((sum, l) => sum + Number(l.amount_requested), 0);
   const uniqueFarmers = new Set(kycQueue.map((k) => k.user_id)).size;
   const dueOrOverdue = repayments.filter(
@@ -225,6 +252,7 @@ export default function AdminControlCentre() {
               uniqueFarmers={uniqueFarmers}
               pendingKyc={pendingKyc}
               pendingLoans={pendingLoans}
+              awaitingDisbursement={awaitingDisbursement}
               totalDisbursed={totalDisbursed}
               kycQueue={kycQueue}
               loanQueue={loanQueue}
@@ -235,7 +263,12 @@ export default function AdminControlCentre() {
             <KycTable kycQueue={kycQueue} onApprove={decideKyc} onDeny={decideKyc} />
           )}
           {tab === "loans" && (
-            <LoansTable loanQueue={loanQueue} onApprove={approveLoanWithTerms} onDecline={decideLoan} />
+            <LoansTable
+              loanQueue={loanQueue}
+              onApprove={approveLoanWithTerms}
+              onDecline={decideLoan}
+              onDisburse={markDisbursed}
+            />
           )}
           {tab === "repayments" && (
             <RepaymentsTable repayments={repayments} onRecordPayment={recordPayment} />
@@ -288,7 +321,7 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
       </nav>
 
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v0.8 prototype</p>
+        <p className="font-mono text-[10px] text-paper/30">v0.9 prototype</p>
       </div>
     </aside>
   );
@@ -316,7 +349,7 @@ function TopBar({ email, onSignOut, tab }) {
 
 /* ---------- Overview ---------- */
 
-function Overview({ uniqueFarmers, pendingKyc, pendingLoans, totalDisbursed, kycQueue, loanQueue, setTab }) {
+function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursement, totalDisbursed, kycQueue, loanQueue, setTab }) {
   const recentActivity = [...kycQueue, ...loanQueue]
     .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))
     .slice(0, 6);
@@ -327,10 +360,11 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, totalDisbursed, kyc
 
   return (
     <div>
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-5 gap-4 mb-8">
         <StatTile label="Registered farmers" value={uniqueFarmers} />
         <StatTile label="Pending KYC" value={pendingKyc} accent={pendingKyc > 0 ? "gold" : null} onClick={() => setTab("kyc")} />
         <StatTile label="Pending loans" value={pendingLoans} accent={pendingLoans > 0 ? "gold" : null} onClick={() => setTab("loans")} />
+        <StatTile label="Awaiting disbursement" value={awaitingDisbursement} accent={awaitingDisbursement > 0 ? "gold" : null} onClick={() => setTab("loans")} />
         <StatTile label="Total disbursed" value={`${totalDisbursed.toLocaleString()} XAF`} mono />
       </div>
 
@@ -436,9 +470,9 @@ function buildGrowthData(kycQueue) {
 }
 
 function buildVolumeData(loanQueue) {
-  const approved = loanQueue.filter((l) => l.status === "approved");
+  const disbursed = loanQueue.filter((l) => l.status === "disbursed");
   const byMonth = {};
-  approved.forEach((l) => {
+  disbursed.forEach((l) => {
     const d = new Date(l.disbursed_at || l.submitted_at);
     const key = d.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
     byMonth[key] = (byMonth[key] || 0) + Number(l.amount_requested);
@@ -459,7 +493,7 @@ function buildFunnelData(kycQueue) {
 
 function statusDot(status) {
   if (status === "pending") return "bg-gold";
-  if (status === "approved") return "bg-forest";
+  if (status === "approved" || status === "disbursed") return "bg-forest";
   return "bg-red-400";
 }
 
@@ -470,7 +504,7 @@ function StatTile({ label, value, accent, mono, onClick }) {
       className={`bg-white border border-forest/10 rounded-xl p-5 ${onClick ? "cursor-pointer hover:border-forest/25 transition" : ""}`}
     >
       <p className="text-xs text-sage mb-2">{label}</p>
-      <p className={`font-display text-2xl font-semibold ${accent === "gold" ? "text-gold" : "text-forest"} ${mono ? "font-mono text-xl" : ""}`}>
+      <p className={`font-display font-semibold text-forest ${accent === "gold" ? "text-gold" : "text-forest"} ${mono ? "font-mono text-lg" : "text-2xl"}`}>
         {value}
       </p>
     </div>
@@ -546,8 +580,10 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
 
 /* ---------- Loans table ---------- */
 
-function LoansTable({ loanQueue, onApprove, onDecline }) {
+function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
   const [reviewing, setReviewing] = useState(null);
+  const [disbursingId, setDisbursingId] = useState(null);
+  const [reference, setReference] = useState("");
 
   return (
     <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
@@ -558,7 +594,7 @@ function LoansTable({ loanQueue, onApprove, onDecline }) {
             <th className="px-5 py-3 font-medium">Farmer</th>
             <th className="px-5 py-3 font-medium">Purpose</th>
             <th className="px-5 py-3 font-medium text-right">Amount</th>
-            <th className="px-5 py-3 font-medium text-right">Terms</th>
+            <th className="px-5 py-3 font-medium text-right">Mobile money</th>
             <th className="px-5 py-3 font-medium text-right">Status</th>
             <th className="px-5 py-3 font-medium text-right">Action</th>
           </tr>
@@ -572,30 +608,76 @@ function LoansTable({ loanQueue, onApprove, onDecline }) {
             </tr>
           )}
           {loanQueue.map((l) => (
-            <tr key={l.id} className="border-b border-forest/5 hover:bg-forest/[0.02]">
-              <td className={`w-1 ${railColor(l.status)}`}></td>
-              <td className="px-5 py-3.5">
-                <p className="font-medium text-ink">{l.profiles?.full_name || l.profiles?.email}</p>
-              </td>
-              <td className="px-5 py-3.5 text-ink/70">{l.purpose}</td>
-              <td className="px-5 py-3.5 text-right font-mono">
-                {Number(l.amount_requested).toLocaleString()} XAF
-              </td>
-              <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
-                {l.status === "approved" ? `${l.interest_rate}% · ${l.term_months}mo` : "—"}
-              </td>
-              <td className="px-5 py-3.5 text-right">
-                <StatusBadge status={l.status} />
-              </td>
-              <td className="px-5 py-3.5 text-right">
-                <button
-                  onClick={() => setReviewing(l)}
-                  className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                >
-                  Review
-                </button>
-              </td>
-            </tr>
+            <Fragment key={l.id}>
+              <tr className="border-b border-forest/5">
+                <td className={`w-1 ${railColor(l.status)}`}></td>
+                <td className="px-5 py-3.5">
+                  <p className="font-medium text-ink">{l.profiles?.full_name || l.profiles?.email}</p>
+                </td>
+                <td className="px-5 py-3.5 text-ink/70">{l.purpose}</td>
+                <td className="px-5 py-3.5 text-right font-mono">
+                  {Number(l.amount_requested).toLocaleString()} XAF
+                </td>
+                <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
+                  {l.profiles?.mobile_money_number
+                    ? `${l.profiles.mobile_money_provider} ${l.profiles.mobile_money_number}`
+                    : "not set"}
+                </td>
+                <td className="px-5 py-3.5 text-right">
+                  <StatusBadge status={l.status} />
+                </td>
+                <td className="px-5 py-3.5 text-right">
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setReviewing(l)}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5"
+                    >
+                      Review
+                    </button>
+                    {l.status === "approved" && (
+                      <button
+                        onClick={() => { setDisbursingId(disbursingId === l.id ? null : l.id); setReference(""); }}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
+                      >
+                        Mark disbursed
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+              {disbursingId === l.id && (
+                <tr className="border-b border-forest/5 bg-forest/[0.015]">
+                  <td></td>
+                  <td colSpan={6} className="px-5 py-4">
+                    <div className="flex items-end gap-4">
+                      <label className="block flex-1 max-w-xs">
+                        <span className="text-xs font-medium text-ink/70 mb-1 block">Mobile money transaction reference</span>
+                        <input
+                          type="text"
+                          value={reference}
+                          onChange={(e) => setReference(e.target.value)}
+                          placeholder="e.g. MTN-TXN-48213"
+                          className="w-full border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
+                        />
+                      </label>
+                      <button
+                        onClick={() => { onDisburse(l, reference); setDisbursingId(null); }}
+                        disabled={!reference.trim()}
+                        className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark disabled:opacity-50"
+                      >
+                        Confirm disbursed
+                      </button>
+                      <button
+                        onClick={() => setDisbursingId(null)}
+                        className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
         </tbody>
       </table>
@@ -617,6 +699,7 @@ function LoansTable({ loanQueue, onApprove, onDecline }) {
 function RepaymentsTable({ repayments, onRecordPayment }) {
   const [payingFor, setPayingFor] = useState(null);
   const [amount, setAmount] = useState("");
+  const [reference, setReference] = useState("");
 
   const computeStatus = (r) => {
     if (r.status === "paid") return "paid";
@@ -631,6 +714,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
   const startPayment = (r) => {
     setPayingFor(r.id);
     setAmount(String(r.amount_due));
+    setReference("");
   };
 
   return (
@@ -651,7 +735,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
           {repayments.length === 0 && (
             <tr>
               <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">
-                No repayment schedules yet — approve a loan with terms to generate one.
+                No repayment schedules yet — approve and disburse a loan to generate one.
               </td>
             </tr>
           )}
@@ -686,7 +770,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                     )}
                     {status === "paid" && (
                       <span className="font-mono text-xs text-sage">
-                        {new Date(r.paid_at).toLocaleDateString()}
+                        {new Date(r.paid_at).toLocaleDateString()} · {r.payment_reference || "no ref"}
                       </span>
                     )}
                   </td>
@@ -695,7 +779,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                   <tr className="border-b border-forest/5 bg-forest/[0.015]">
                     <td></td>
                     <td colSpan={6} className="px-5 py-4">
-                      <div className="flex items-end gap-4">
+                      <div className="flex items-end gap-4 flex-wrap">
                         <label className="block">
                           <span className="text-xs font-medium text-ink/70 mb-1 block">Amount received (XAF)</span>
                           <input
@@ -705,8 +789,18 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                             className="w-36 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
                           />
                         </label>
+                        <label className="block">
+                          <span className="text-xs font-medium text-ink/70 mb-1 block">Mobile money reference</span>
+                          <input
+                            type="text"
+                            value={reference}
+                            onChange={(e) => setReference(e.target.value)}
+                            placeholder="e.g. MTN-TXN-58213"
+                            className="w-48 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
+                          />
+                        </label>
                         <button
-                          onClick={() => { onRecordPayment(r, Number(amount)); setPayingFor(null); }}
+                          onClick={() => { onRecordPayment(r, Number(amount), reference); setPayingFor(null); }}
                           className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark"
                         >
                           Confirm payment
@@ -754,7 +848,8 @@ function repaymentRailColor(status) {
 function StatusBadge({ status }) {
   const styles = {
     pending: "bg-gold/15 text-gold",
-    approved: "bg-forest/10 text-forest",
+    approved: "bg-sage/15 text-sage",
+    disbursed: "bg-forest/10 text-forest",
     denied: "bg-red-100 text-red-600",
     declined: "bg-red-100 text-red-600",
   };
@@ -767,6 +862,6 @@ function StatusBadge({ status }) {
 
 function railColor(status) {
   if (status === "pending") return "bg-gold";
-  if (status === "approved") return "bg-forest";
+  if (status === "approved" || status === "disbursed") return "bg-forest";
   return "bg-red-400";
 }

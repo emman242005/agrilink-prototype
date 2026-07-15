@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react";
 import {
   Sprout, Droplets, Wallet, ShieldCheck, MapPin, Plus,
-  CheckCircle2, Circle, Clock3, Wheat,
+  CheckCircle2, Circle, Clock3, Wheat, Smartphone,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import NotificationBell from "../components/NotificationBell";
 import LoanApplicationWizard from "../components/LoanApplicationWizard";
+import PaymentSettingsModal from "../components/PaymentSettingsModal";
 import bgImage from "../assets/images/pic3.png";
 
 export default function FarmerDashboard() {
-  const { session, profile, signOut } = useAuth();
+  const { session, profile, signOut, refreshProfile } = useAuth();
   const [loans, setLoans] = useState([]);
   const [repayments, setRepayments] = useState({});
   const [showForm, setShowForm] = useState(false);
   const [showCropNote, setShowCropNote] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
 
   const loadLoans = async () => {
     const { data } = await supabase
@@ -47,13 +49,13 @@ export default function FarmerDashboard() {
 
   useEffect(() => {
     if (loans.length > 0) {
-      loadRepayments(loans.filter((l) => l.status === "approved").map((l) => l.id));
+      loadRepayments(loans.filter((l) => l.status === "approved" || l.status === "disbursed").map((l) => l.id));
     }
   }, [loans]);
 
   const latestLoan = loans[0];
   const totalDisbursed = loans
-    .filter((l) => l.status === "approved")
+    .filter((l) => l.status === "disbursed")
     .reduce((sum, l) => sum + Number(l.amount_requested), 0);
   const pendingCount = loans.filter((l) => l.status === "pending").length;
 
@@ -66,6 +68,8 @@ export default function FarmerDashboard() {
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long", month: "long", day: "numeric",
   });
+
+  const hasPaymentDetails = profile?.mobile_money_number;
 
   return (
     <div className="min-h-screen bg-paper">
@@ -98,7 +102,13 @@ export default function FarmerDashboard() {
               Welcome back, {profile?.full_name?.split(" ")[0] || "Farmer"}
             </h1>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setShowPayment(true)}
+              className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition"
+            >
+              <Smartphone size={16} /> Payment details
+            </button>
             <button
               onClick={() => setShowCropNote(true)}
               className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition"
@@ -113,6 +123,18 @@ export default function FarmerDashboard() {
             </button>
           </div>
         </div>
+
+        {!hasPaymentDetails && (
+          <div className="mb-6 bg-gold/10 border border-gold/30 rounded-xl px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+            <p className="text-sm text-forest">Add your mobile money number so loans can be disbursed to you.</p>
+            <button
+              onClick={() => setShowPayment(true)}
+              className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
+            >
+              Add now
+            </button>
+          </div>
+        )}
 
         {showCropNote && (
           <div className="mb-6 bg-mint/10 border border-mint/30 rounded-xl px-4 py-3 flex items-center justify-between">
@@ -141,7 +163,7 @@ export default function FarmerDashboard() {
             icon={<Wallet size={18} />}
             label="Total disbursed"
             value={`${totalDisbursed.toLocaleString()} XAF`}
-            sub="Across approved loans"
+            sub="Paid to mobile money"
             accent="forest"
             mono
           />
@@ -216,6 +238,17 @@ export default function FarmerDashboard() {
           />
         )}
 
+        {/* Payment settings modal */}
+        {showPayment && (
+          <PaymentSettingsModal
+            userId={session.user.id}
+            currentProvider={profile?.mobile_money_provider}
+            currentNumber={profile?.mobile_money_number}
+            onClose={() => setShowPayment(false)}
+            onSaved={refreshProfile}
+          />
+        )}
+
         {/* Applications list */}
         <h2 className="font-display text-xl font-semibold text-forest mb-4">Your applications</h2>
         {loans.length === 0 && <p className="text-sage text-sm">No loan applications yet.</p>}
@@ -226,16 +259,21 @@ export default function FarmerDashboard() {
                 <div>
                   <p className="font-mono font-medium">{Number(loan.amount_requested).toLocaleString()} XAF</p>
                   <p className="text-sm text-ink/60">{loan.purpose}</p>
-                  {loan.status === "approved" && (
+                  {(loan.status === "approved" || loan.status === "disbursed") && (
                     <p className="text-xs text-sage mt-1">
                       {loan.interest_rate}% interest · {loan.term_months} months
+                    </p>
+                  )}
+                  {loan.status === "disbursed" && (
+                    <p className="text-xs text-forest mt-1">
+                      Disbursed {new Date(loan.disbursed_at).toLocaleDateString()} · ref: {loan.disbursement_reference}
                     </p>
                   )}
                 </div>
                 <StatusPill status={loan.status} />
               </div>
 
-              {loan.status === "approved" && repayments[loan.id] && (
+              {(loan.status === "approved" || loan.status === "disbursed") && repayments[loan.id] && (
                 <div className="mt-4 pt-4 border-t border-forest/10 space-y-2">
                   {repayments[loan.id].map((r) => (
                     <div key={r.id} className="flex items-center justify-between text-sm">
@@ -286,7 +324,8 @@ function Pipeline({ status }) {
   const steps = [
     { key: "applied", label: "Applied", done: true },
     { key: "verified", label: "Verified", done: true },
-    { key: "disbursed", label: "Disbursed", done: status === "approved" },
+    { key: "approved", label: "Approved", done: status === "approved" || status === "disbursed" },
+    { key: "disbursed", label: "Disbursed", done: status === "disbursed" },
   ];
 
   return (
@@ -354,7 +393,8 @@ function LegendDot({ color, label }) {
 function StatusPill({ status }) {
   const styles = {
     pending: "bg-gold/15 text-gold",
-    approved: "bg-forest/10 text-forest",
+    approved: "bg-sage/15 text-sage",
+    disbursed: "bg-forest/10 text-forest",
     declined: "bg-red-100 text-red-600",
   };
   return (

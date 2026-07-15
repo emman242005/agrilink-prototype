@@ -87,6 +87,14 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
             <InfoRow label="Estimated yield" value={loan.estimated_yield || "—"} />
             <InfoRow label="Preferred duration" value={loan.preferred_duration_months ? `${loan.preferred_duration_months} months` : "—"} />
             <InfoRow label="Submitted" value={new Date(loan.submitted_at).toLocaleDateString()} />
+            <InfoRow
+              label="Mobile money"
+              value={
+                loan.profiles?.mobile_money_number
+                  ? `${loan.profiles.mobile_money_provider} ${loan.profiles.mobile_money_number}`
+                  : "Not set"
+              }
+            />
           </div>
 
           <h3 className="font-display text-sm font-semibold text-forest mb-3">Documents</h3>
@@ -147,8 +155,16 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
             <div className="pt-4 border-t border-forest/10">
               <p className="text-sm text-sage">
                 Status: <span className="font-medium text-ink">{loan.status.toUpperCase()}</span>
-                {loan.status === "approved" && ` · ${loan.interest_rate}% · ${loan.term_months} months`}
+                {(loan.status === "approved" || loan.status === "disbursed") && ` · ${loan.interest_rate}% · ${loan.term_months} months`}
               </p>
+              {loan.status === "approved" && (
+                <p className="text-xs text-gold mt-1">Awaiting disbursement — use "Mark disbursed" from the loans table.</p>
+              )}
+              {loan.status === "disbursed" && (
+                <p className="text-xs text-forest mt-1">
+                  Disbursed {new Date(loan.disbursed_at).toLocaleDateString()} · ref: {loan.disbursement_reference}
+                </p>
+              )}
             </div>
           )}
         </div>
