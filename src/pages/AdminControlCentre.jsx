@@ -543,7 +543,11 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
                     </button>
                     {l.status === "approved" && (
                       <button
-                        onClick={() => { setDisbursingId(disbursingId === l.id ? null : l.id); setReference(""); }}
+                        onClick={() => {
+                          const isOpen = disbursingId === l.id;
+                          setDisbursingId(isOpen ? null : l.id);
+                          if (!isOpen) setReference(generateReference(l.profiles?.mobile_money_provider));
+                        }}
                         className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
                       >
                         Mark disbursed
@@ -558,7 +562,9 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
                   <td colSpan={6} className="px-5 py-4">
                     <div className="flex items-end gap-4">
                       <label className="block flex-1 max-w-xs">
-                        <span className="text-xs font-medium text-ink/70 mb-1 block">Mobile money transaction reference</span>
+                        <span className="text-xs font-medium text-ink/70 mb-1 block">
+                          Mobile money transaction reference <span className="text-sage font-normal">(auto-generated, edit if you have the real one)</span>
+                        </span>
                         <input
                           type="text"
                           value={reference}
@@ -591,6 +597,12 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
       )}
     </div>
   );
+}
+
+function generateReference(provider) {
+  const prefix = provider === "MTN" ? "MTN" : provider === "Orange" ? "ORG" : "TXN";
+  const random = Math.floor(100000 + Math.random() * 900000);
+  return `${prefix}-TXN-${random}`;
 }
 
 function RepaymentsTable({ repayments, onRecordPayment }) {
