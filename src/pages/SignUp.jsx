@@ -7,6 +7,7 @@ export default function SignUp() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [awaitingVerification, setAwaitingVerification] = useState(false);
   const navigate = useNavigate();
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
@@ -16,7 +17,7 @@ export default function SignUp() {
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -29,8 +30,37 @@ export default function SignUp() {
       setError(error.message);
       return;
     }
+
+    if (!data.session) {
+      setAwaitingVerification(true);
+      return;
+    }
+
     navigate("/kyc");
   };
+
+  if (awaitingVerification) {
+    return (
+      <AuthShell title="Verify your email" subtitle="One more step to activate your account">
+        <div className="text-center">
+          <div className="w-14 h-14 mx-auto rounded-full bg-gold/15 flex items-center justify-center mb-5">
+            <span className="text-gold text-2xl">✉️</span>
+          </div>
+          <p className="text-sm text-sage mb-2">We sent a verification link to</p>
+          <p className="text-sm font-medium text-forest mb-6">{form.email}</p>
+          <p className="text-sm text-sage mb-6">
+            Click the link in that email to activate your account, then come back here and log in.
+          </p>
+          <Link
+            to="/login"
+            className="block w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition text-center"
+          >
+            Go to login
+          </Link>
+        </div>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell title="Create your account" subtitle="Start your loan application in a few minutes">
@@ -44,7 +74,7 @@ export default function SignUp() {
           disabled={loading}
           className="w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition disabled:opacity-60"
         >
-          {loading ? "Creating account…" : "Create account"}
+          {loading ? "Creating account..." : "Create account"}
         </button>
       </form>
       <p className="text-center text-sm text-sage mt-6">
