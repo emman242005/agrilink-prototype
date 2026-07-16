@@ -9,14 +9,17 @@ export function RequireFarmer({ children }) {
   return children;
 }
 
-export function RequireKycStatus({ status, children }) {
+export function RequireKycStatus({ statuses, children }) {
   const { profile, loading } = useAuth();
   if (loading) return <CenteredLoading />;
   if (!profile) return <CenteredLoading />;
 
-  if (profile.kyc_status !== status) {
-    if (profile.kyc_status === "not_submitted" || profile.kyc_status === "denied")
+  const allowed = Array.isArray(statuses) ? statuses : [statuses];
+
+  if (!allowed.includes(profile.kyc_status)) {
+    if (profile.kyc_status === "not_submitted" || profile.kyc_status === "denied") {
       return <Navigate to="/kyc" replace />;
+    }
     if (profile.kyc_status === "pending") return <Navigate to="/pending" replace />;
     if (profile.kyc_status === "approved") return <Navigate to="/dashboard" replace />;
   }
@@ -34,7 +37,7 @@ export function RequireAdmin({ children }) {
 function CenteredLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-paper">
-      <p className="font-mono text-sm text-sage">Loading…</p>
+      <p className="font-mono text-sm text-sage">Loading...</p>
     </div>
   );
 }

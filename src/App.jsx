@@ -19,7 +19,7 @@ export default function App() {
         path="/kyc"
         element={
           <RequireFarmer>
-            <RequireKycStatus status="not_submitted">
+            <RequireKycStatus statuses={["not_submitted", "denied"]}>
               <Kyc />
             </RequireKycStatus>
           </RequireFarmer>
@@ -29,7 +29,7 @@ export default function App() {
         path="/pending"
         element={
           <RequireFarmer>
-            <RequireKycStatus status="pending">
+            <RequireKycStatus statuses={["pending"]}>
               <Pending />
             </RequireKycStatus>
           </RequireFarmer>
@@ -39,7 +39,7 @@ export default function App() {
         path="/dashboard"
         element={
           <RequireFarmer>
-            <RequireKycStatus status="approved">
+            <RequireKycStatus statuses={["approved"]}>
               <FarmerDashboard />
             </RequireKycStatus>
           </RequireFarmer>
