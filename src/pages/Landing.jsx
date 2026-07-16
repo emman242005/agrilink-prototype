@@ -76,7 +76,7 @@ export default function Landing() {
       <div
   className="border-y border-forest/10"
   style={{
-    backgroundImage: `linear-gradient(rgba(250, 249, 246, 0.55), rgba(250, 249, 246, 0.45)), url(${pic4Image})`,
+    backgroundImage: `linear-gradient(rgba(250, 249, 246, 0.45), rgba(250, 249, 246, 0.45)), url(${pic4Image})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
   }}
