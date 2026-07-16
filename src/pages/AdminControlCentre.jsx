@@ -8,6 +8,7 @@ import KycReviewModal from "../components/KycReviewModal";
 import LoanReviewModal from "../components/LoanReviewModal";
 import OfficerSignModal from "../components/OfficerSignModal";
 import { computeRiskScore, RISK_BAND_STYLES } from "../lib/riskScore";
+import { sendEmail as sendEmailJS } from "../lib/sendEmail";
 
 export default function AdminControlCentre() {
   const { session, signOut } = useAuth();
@@ -49,13 +50,8 @@ export default function AdminControlCentre() {
     loadRepayments();
   }, []);
 
-  const sendEmail = async (to, subject, message) => {
-    if (!to) return;
-    try {
-      await supabase.functions.invoke("send-notification-email", { body: { to, subject, message } });
-    } catch (err) {
-      console.error("Email send failed:", err);
-    }
+  const sendEmail = async (to, subject, message, name) => {
+    await sendEmailJS(to, name, subject, message);
   };
 
   const decideKyc = async (submission, decision) => {
@@ -79,7 +75,8 @@ export default function AdminControlCentre() {
       decision === "approved" ? "Your AgriLink verification was approved" : "Your AgriLink verification needs attention",
       decision === "approved"
         ? "Good news, your identity verification was approved. You can now log in and apply for a loan."
-        : "Your identity verification was not approved this time. Please log in, review your submitted documents, and resubmit."
+        : "Your identity verification was not approved this time. Please log in, review your submitted documents, and resubmit.",
+      submission.full_name
     );
 
     loadKyc();
@@ -105,7 +102,8 @@ export default function AdminControlCentre() {
       decision === "declined" ? "Your AgriLink loan request was declined" : "Update on your AgriLink loan",
       decision === "declined"
         ? `Your loan request for ${Number(loan.amount_requested).toLocaleString()} XAF was declined.`
-        : "Your loan status was updated. Log in to view details."
+        : "Your loan status was updated. Log in to view details.",
+      loan.profiles?.full_name
     );
 
     loadLoans();
@@ -152,7 +150,8 @@ export default function AdminControlCentre() {
     await sendEmail(
       loan.profiles?.email,
       "Your AgriLink loan was approved, action needed",
-      `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% interest over ${termMonths} months. Please log in to review and sign the loan agreement before funds can be disbursed.`
+      `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% interest over ${termMonths} months. Please log in to review and sign the loan agreement before funds can be disbursed.`,
+      loan.profiles?.full_name
     );
 
     loadLoans();
@@ -181,7 +180,8 @@ export default function AdminControlCentre() {
     await sendEmail(
       loan.profiles?.email,
       "Your AgriLink loan has been disbursed",
-      `${Number(loan.amount_requested).toLocaleString()} XAF was sent to your ${loan.profiles?.mobile_money_provider || "mobile money"} number ${loan.profiles?.mobile_money_number || ""}. Reference: ${reference}. Log in to view your repayment schedule.`
+      `${Number(loan.amount_requested).toLocaleString()} XAF was sent to your ${loan.profiles?.mobile_money_provider || "mobile money"} number ${loan.profiles?.mobile_money_number || ""}. Reference: ${reference}. Log in to view your repayment schedule.`,
+      loan.profiles?.full_name
     );
 
     loadLoans();
@@ -282,7 +282,7 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
         ))}
       </nav>
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v1.1 prototype</p>
+        <p className="font-mono text-[10px] text-paper/30">v1.2 prototype</p>
       </div>
     </aside>
   );
