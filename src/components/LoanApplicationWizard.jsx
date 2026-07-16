@@ -34,7 +34,7 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
         setLocationStatus("done");
       },
       () => setLocationStatus("denied"),
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
   };
 
@@ -62,7 +62,7 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
   const canProceed = () => {
-    if (step === 1) return form.farmSize && form.location && form.cropType;
+    if (step === 1) return form.farmSize && form.location && form.cropType && locationStatus === "done";
     if (step === 2) return form.amount && form.purpose;
     return true;
   };
@@ -176,25 +176,39 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
               <StepField icon={<Wheat size={16} />} label="Estimated annual yield (optional)" value={form.estimatedYield} onChange={update("estimatedYield")} placeholder="e.g. 800kg" />
 
               <div className="border border-forest/15 rounded-lg p-4">
-                <p className="text-sm font-medium text-ink/80 mb-1">Pin your exact farm location</p>
-                <p className="text-xs text-sage mb-3">Optional, but helps your MFI verify the farm site.</p>
+                <p className="text-sm font-medium text-ink/80 mb-1">
+                  Pin your exact farm location <span className="text-red-500">*</span>
+                </p>
+                <p className="text-xs text-sage mb-3">Required. Your MFI needs this to verify the farm site.</p>
+
                 {locationStatus === "idle" && (
                   <button
                     type="button"
                     onClick={captureLocation}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5"
+                    className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
                   >
                     Capture my current location
                   </button>
                 )}
-                {locationStatus === "loading" && <p className="text-xs text-sage">Getting your location...</p>}
+                {locationStatus === "loading" && <p className="text-xs text-sage">Getting your location, this can take a few seconds...</p>}
                 {locationStatus === "done" && coords && (
                   <p className="text-xs text-forest">
                     Location captured ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})
                   </p>
                 )}
                 {locationStatus === "denied" && (
-                  <p className="text-xs text-gold">Couldn't access location, you can still submit without it.</p>
+                  <div>
+                    <p className="text-xs text-red-600 mb-2">
+                      Couldn't get your location. Make sure location access is allowed for this site in your phone's browser settings, then try again.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={captureLocation}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
+                    >
+                      Try again
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
