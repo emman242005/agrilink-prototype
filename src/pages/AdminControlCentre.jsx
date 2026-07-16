@@ -2,6 +2,7 @@
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
+import { Menu, X } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import KycReviewModal from "../components/KycReviewModal";
@@ -16,6 +17,7 @@ export default function AdminControlCentre() {
   const [kycQueue, setKycQueue] = useState([]);
   const [loanQueue, setLoanQueue] = useState([]);
   const [repayments, setRepayments] = useState([]);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const loadKyc = async () => {
     const { data, error } = await supabase
@@ -223,14 +225,37 @@ Log in to AgriLink to track your repayments.`,
   const uniqueFarmers = new Set(kycQueue.map((k) => k.user_id)).size;
   const dueOrOverdue = repayments.filter((r) => r.status !== "paid" && new Date(r.due_date) <= new Date()).length;
 
+  const goTab = (t) => {
+    setTab(t);
+    setMobileNavOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-paper flex">
-      <Sidebar tab={tab} setTab={setTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} />
+      {/* Desktop sidebar */}
+      <div className="hidden md:block">
+        <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-ink/50" onClick={() => setMobileNavOpen(false)} />
+          <div className="absolute left-0 top-0 bottom-0">
+            <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} />
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar email={session?.user?.email} onSignOut={signOut} tab={tab} />
+        <TopBar
+          email={session?.user?.email}
+          onSignOut={signOut}
+          tab={tab}
+          onMenuClick={() => setMobileNavOpen(true)}
+        />
 
-        <main className="flex-1 px-8 py-8 overflow-auto">
+        <main className="flex-1 px-4 md:px-8 py-6 md:py-8 overflow-auto">
           {tab === "overview" && (
             <Overview
               uniqueFarmers={uniqueFarmers}
@@ -240,7 +265,7 @@ Log in to AgriLink to track your repayments.`,
               totalDisbursed={totalDisbursed}
               kycQueue={kycQueue}
               loanQueue={loanQueue}
-              setTab={setTab}
+              setTab={goTab}
             />
           )}
           {tab === "kyc" && <KycTable kycQueue={kycQueue} onApprove={decideKyc} onDeny={decideKyc} />}
@@ -270,7 +295,7 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
   ];
 
   return (
-    <aside className="w-60 bg-forestdark flex-shrink-0 flex flex-col">
+    <aside className="w-60 h-full bg-forestdark flex-shrink-0 flex flex-col">
       <div className="px-6 py-6 border-b border-paper/10">
         <span className="font-display text-xl font-semibold text-paper">AgriLink</span>
         <p className="font-mono text-[10px] text-gold tracking-widest mt-1">CONTROL CENTRE</p>
@@ -292,19 +317,24 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
         ))}
       </nav>
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v1.3 prototype</p>
+        <p className="font-mono text-[10px] text-paper/30">v1.4 prototype</p>
       </div>
     </aside>
   );
 }
 
-function TopBar({ email, onSignOut, tab }) {
+function TopBar({ email, onSignOut, tab, onMenuClick }) {
   const titles = { overview: "Overview", kyc: "KYC Review", loans: "Loan Approvals", repayments: "Repayments" };
   return (
-    <header className="border-b border-forest/10 bg-white px-8 py-4 flex items-center justify-between">
-      <h1 className="font-display text-lg font-semibold text-forest">{titles[tab]}</h1>
-      <div className="flex items-center gap-4">
-        <span className="font-mono text-xs text-sage">{email}</span>
+    <header className="border-b border-forest/10 bg-white px-4 md:px-8 py-4 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <button onClick={onMenuClick} className="md:hidden text-forest">
+          <Menu size={22} />
+        </button>
+        <h1 className="font-display text-base md:text-lg font-semibold text-forest">{titles[tab]}</h1>
+      </div>
+      <div className="flex items-center gap-2 md:gap-4">
+        <span className="hidden sm:inline font-mono text-xs text-sage">{email}</span>
         <button onClick={onSignOut} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest/70 hover:bg-forest/5">
           Log out
         </button>
@@ -322,7 +352,7 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
 
   return (
     <div>
-      <div className="grid grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
         <StatTile label="Registered farmers" value={uniqueFarmers} />
         <StatTile label="Pending KYC" value={pendingKyc} accent={pendingKyc > 0 ? "gold" : null} onClick={() => setTab("kyc")} />
         <StatTile label="Pending loans" value={pendingLoans} accent={pendingLoans > 0 ? "gold" : null} onClick={() => setTab("loans")} />
@@ -331,7 +361,7 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
         <StatTile label="Avg. risk score" value={`${avgRiskScore}/100`} mono />
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
         <ChartCard title="Farmer growth" span={2}>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={growthData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
@@ -384,12 +414,12 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
         {recentActivity.map((item, i) => {
           const isKyc = "national_id" in item;
           return (
-            <div key={item.id} className={`flex items-center gap-4 px-5 py-3 ${i !== 0 ? "border-t border-forest/5" : ""}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${statusDot(item.status)}`} />
-              <span className="text-sm text-ink/80 flex-1">
+            <div key={item.id} className={`flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 ${i !== 0 ? "border-t border-forest/5" : ""}`}>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(item.status)}`} />
+              <span className="text-sm text-ink/80 flex-1 truncate">
                 {isKyc ? "KYC submission" : "Loan application"} for {item.full_name || item.profiles?.full_name || item.profiles?.email}
               </span>
-              <span className="font-mono text-xs text-sage">{new Date(item.submitted_at).toLocaleDateString()}</span>
+              <span className="font-mono text-xs text-sage flex-shrink-0">{new Date(item.submitted_at).toLocaleDateString()}</span>
             </div>
           );
         })}
@@ -400,7 +430,7 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
 
 function ChartCard({ title, children, span }) {
   return (
-    <div className={`bg-white border border-forest/10 rounded-xl p-5 ${span === 2 ? "col-span-2" : ""}`}>
+    <div className={`bg-white border border-forest/10 rounded-xl p-4 md:p-5 ${span === 2 ? "lg:col-span-2" : ""}`}>
       <p className="text-xs text-sage mb-3">{title}</p>
       {children}
     </div>
@@ -451,9 +481,9 @@ function statusDot(status) {
 
 function StatTile({ label, value, accent, mono, onClick }) {
   return (
-    <div onClick={onClick} className={`bg-white border border-forest/10 rounded-xl p-5 ${onClick ? "cursor-pointer hover:border-forest/25 transition" : ""}`}>
-      <p className="text-xs text-sage mb-2">{label}</p>
-      <p className={`font-display font-semibold text-forest ${accent === "gold" ? "text-gold" : "text-forest"} ${mono ? "font-mono text-lg" : "text-2xl"}`}>{value}</p>
+    <div onClick={onClick} className={`bg-white border border-forest/10 rounded-xl p-3 md:p-5 ${onClick ? "cursor-pointer hover:border-forest/25 transition" : ""}`}>
+      <p className="text-[11px] md:text-xs text-sage mb-1 md:mb-2">{label}</p>
+      <p className={`font-display font-semibold text-forest ${accent === "gold" ? "text-gold" : "text-forest"} ${mono ? "font-mono text-sm md:text-lg" : "text-lg md:text-2xl"}`}>{value}</p>
     </div>
   );
 }
@@ -463,46 +493,48 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
 
   return (
     <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-forest/10 text-left text-xs text-sage">
-            <th className="w-1"></th>
-            <th className="px-5 py-3 font-medium">Farmer</th>
-            <th className="px-5 py-3 font-medium">Crop / farm</th>
-            <th className="px-5 py-3 font-medium">Region</th>
-            <th className="px-5 py-3 font-medium text-right">Risk score</th>
-            <th className="px-5 py-3 font-medium">Submitted</th>
-            <th className="px-5 py-3 font-medium text-right">Status</th>
-            <th className="px-5 py-3 font-medium text-right">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {kycQueue.length === 0 && (
-            <tr>
-              <td colSpan={8} className="px-5 py-8 text-center text-sage text-sm">No KYC submissions yet.</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[800px]">
+          <thead>
+            <tr className="border-b border-forest/10 text-left text-xs text-sage">
+              <th className="w-1"></th>
+              <th className="px-5 py-3 font-medium">Farmer</th>
+              <th className="px-5 py-3 font-medium">Crop / farm</th>
+              <th className="px-5 py-3 font-medium">Region</th>
+              <th className="px-5 py-3 font-medium text-right">Risk score</th>
+              <th className="px-5 py-3 font-medium">Submitted</th>
+              <th className="px-5 py-3 font-medium text-right">Status</th>
+              <th className="px-5 py-3 font-medium text-right">Action</th>
             </tr>
-          )}
-          {kycQueue.map((k) => (
-            <tr key={k.id} className="border-b border-forest/5 hover:bg-forest/[0.02]">
-              <td className={`w-1 ${railColor(k.status)}`}></td>
-              <td className="px-5 py-3.5">
-                <p className="font-medium text-ink">{k.full_name}</p>
-                <p className="font-mono text-xs text-sage">{k.profiles?.email}</p>
-              </td>
-              <td className="px-5 py-3.5 text-ink/70">{k.crop}, {k.farm_size}</td>
-              <td className="px-5 py-3.5 text-ink/70">{k.region}</td>
-              <td className="px-5 py-3.5 text-right"><RiskBadge kyc={k} /></td>
-              <td className="px-5 py-3.5 font-mono text-xs text-sage">{new Date(k.submitted_at).toLocaleDateString()}</td>
-              <td className="px-5 py-3.5 text-right"><StatusBadge status={k.status} /></td>
-              <td className="px-5 py-3.5 text-right">
-                <button onClick={() => setReviewing(k)} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
-                  Review
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {kycQueue.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-5 py-8 text-center text-sage text-sm">No KYC submissions yet.</td>
+              </tr>
+            )}
+            {kycQueue.map((k) => (
+              <tr key={k.id} className="border-b border-forest/5 hover:bg-forest/[0.02]">
+                <td className={`w-1 ${railColor(k.status)}`}></td>
+                <td className="px-5 py-3.5">
+                  <p className="font-medium text-ink">{k.full_name}</p>
+                  <p className="font-mono text-xs text-sage">{k.profiles?.email}</p>
+                </td>
+                <td className="px-5 py-3.5 text-ink/70">{k.crop}, {k.farm_size}</td>
+                <td className="px-5 py-3.5 text-ink/70">{k.region}</td>
+                <td className="px-5 py-3.5 text-right"><RiskBadge kyc={k} /></td>
+                <td className="px-5 py-3.5 font-mono text-xs text-sage">{new Date(k.submitted_at).toLocaleDateString()}</td>
+                <td className="px-5 py-3.5 text-right"><StatusBadge status={k.status} /></td>
+                <td className="px-5 py-3.5 text-right">
+                  <button onClick={() => setReviewing(k)} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
+                    Review
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {reviewing && (
         <KycReviewModal
@@ -534,108 +566,110 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
 
   return (
     <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-forest/10 text-left text-xs text-sage">
-            <th className="w-1"></th>
-            <th className="px-5 py-3 font-medium">Farmer</th>
-            <th className="px-5 py-3 font-medium">Purpose</th>
-            <th className="px-5 py-3 font-medium text-right">Amount</th>
-            <th className="px-5 py-3 font-medium text-right">Mobile money</th>
-            <th className="px-5 py-3 font-medium text-right">Status</th>
-            <th className="px-5 py-3 font-medium text-right">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loanQueue.length === 0 && (
-            <tr>
-              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No loan applications yet.</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[800px]">
+          <thead>
+            <tr className="border-b border-forest/10 text-left text-xs text-sage">
+              <th className="w-1"></th>
+              <th className="px-5 py-3 font-medium">Farmer</th>
+              <th className="px-5 py-3 font-medium">Purpose</th>
+              <th className="px-5 py-3 font-medium text-right">Amount</th>
+              <th className="px-5 py-3 font-medium text-right">Mobile money</th>
+              <th className="px-5 py-3 font-medium text-right">Status</th>
+              <th className="px-5 py-3 font-medium text-right">Action</th>
             </tr>
-          )}
-          {loanQueue.map((l) => (
-            <Fragment key={l.id}>
-              <tr className="border-b border-forest/5">
-                <td className={`w-1 ${railColor(l.status)}`}></td>
-                <td className="px-5 py-3.5">
-                  <p className="font-medium text-ink">{l.profiles?.full_name || l.profiles?.email}</p>
-                </td>
-                <td className="px-5 py-3.5 text-ink/70">{l.purpose}</td>
-                <td className="px-5 py-3.5 text-right font-mono">{Number(l.amount_requested).toLocaleString()} XAF</td>
-                <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
-                  {l.profiles?.mobile_money_number
-                    ? `${l.profiles.mobile_money_provider} ${l.profiles.mobile_money_number} (${l.profiles.mobile_money_holder_name || "no name"})`
-                    : "not set"}
-                </td>
-                <td className="px-5 py-3.5 text-right"><StatusBadge status={l.status} /></td>
-                <td className="px-5 py-3.5 text-right">
-                  <div className="flex gap-2 justify-end">
-                    <button onClick={() => setReviewing(l)} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5">
-                      Review
-                    </button>
-
-                    {l.status === "approved" && !l.farmer_signature && (
-                      <span className="text-xs text-sage px-3 py-1.5">Awaiting farmer signature</span>
-                    )}
-
-                    {l.status === "approved" && l.farmer_signature && !l.officer_signature && (
-                      <button
-                        onClick={() => setSigning(l)}
-                        className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                      >
-                        Countersign
-                      </button>
-                    )}
-
-                    {l.status === "approved" && l.officer_signature && (
-                      <button
-                        onClick={() => {
-                          const isOpen = disbursingId === l.id;
-                          setDisbursingId(isOpen ? null : l.id);
-                          if (!isOpen) setReference(generateReference(l.profiles?.mobile_money_provider));
-                        }}
-                        className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                      >
-                        Mark disbursed
-                      </button>
-                    )}
-                  </div>
-                </td>
+          </thead>
+          <tbody>
+            {loanQueue.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No loan applications yet.</td>
               </tr>
-              {disbursingId === l.id && (
-                <tr className="border-b border-forest/5 bg-forest/[0.015]">
-                  <td></td>
-                  <td colSpan={6} className="px-5 py-4">
-                    <div className="flex items-end gap-4">
-                      <label className="block flex-1 max-w-xs">
-                        <span className="text-xs font-medium text-ink/70 mb-1 block">
-                          Mobile money transaction reference (auto-generated, edit if you have the real one)
-                        </span>
-                        <input
-                          type="text"
-                          value={reference}
-                          onChange={(e) => setReference(e.target.value)}
-                          placeholder="e.g. MTN-TXN-48213"
-                          className="w-full border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
-                        />
-                      </label>
-                      <button
-                        onClick={() => { onDisburse(l, reference); setDisbursingId(null); }}
-                        disabled={!reference.trim()}
-                        className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark disabled:opacity-50"
-                      >
-                        Confirm disbursed
+            )}
+            {loanQueue.map((l) => (
+              <Fragment key={l.id}>
+                <tr className="border-b border-forest/5">
+                  <td className={`w-1 ${railColor(l.status)}`}></td>
+                  <td className="px-5 py-3.5">
+                    <p className="font-medium text-ink">{l.profiles?.full_name || l.profiles?.email}</p>
+                  </td>
+                  <td className="px-5 py-3.5 text-ink/70">{l.purpose}</td>
+                  <td className="px-5 py-3.5 text-right font-mono">{Number(l.amount_requested).toLocaleString()} XAF</td>
+                  <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
+                    {l.profiles?.mobile_money_number
+                      ? `${l.profiles.mobile_money_provider} ${l.profiles.mobile_money_number} (${l.profiles.mobile_money_holder_name || "no name"})`
+                      : "not set"}
+                  </td>
+                  <td className="px-5 py-3.5 text-right"><StatusBadge status={l.status} /></td>
+                  <td className="px-5 py-3.5 text-right">
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setReviewing(l)} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5">
+                        Review
                       </button>
-                      <button onClick={() => setDisbursingId(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
-                        Cancel
-                      </button>
+
+                      {l.status === "approved" && !l.farmer_signature && (
+                        <span className="text-xs text-sage px-3 py-1.5">Awaiting signature</span>
+                      )}
+
+                      {l.status === "approved" && l.farmer_signature && !l.officer_signature && (
+                        <button
+                          onClick={() => setSigning(l)}
+                          className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
+                        >
+                          Countersign
+                        </button>
+                      )}
+
+                      {l.status === "approved" && l.officer_signature && (
+                        <button
+                          onClick={() => {
+                            const isOpen = disbursingId === l.id;
+                            setDisbursingId(isOpen ? null : l.id);
+                            if (!isOpen) setReference(generateReference(l.profiles?.mobile_money_provider));
+                          }}
+                          className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
+                        >
+                          Mark disbursed
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
-              )}
-            </Fragment>
-          ))}
-        </tbody>
-      </table>
+                {disbursingId === l.id && (
+                  <tr className="border-b border-forest/5 bg-forest/[0.015]">
+                    <td></td>
+                    <td colSpan={6} className="px-5 py-4">
+                      <div className="flex items-end gap-4 flex-wrap">
+                        <label className="block flex-1 max-w-xs">
+                          <span className="text-xs font-medium text-ink/70 mb-1 block">
+                            Mobile money reference (auto-generated, edit if you have the real one)
+                          </span>
+                          <input
+                            type="text"
+                            value={reference}
+                            onChange={(e) => setReference(e.target.value)}
+                            placeholder="e.g. MTN-TXN-48213"
+                            className="w-full border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
+                          />
+                        </label>
+                        <button
+                          onClick={() => { onDisburse(l, reference); setDisbursingId(null); }}
+                          disabled={!reference.trim()}
+                          className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark disabled:opacity-50"
+                        >
+                          Confirm disbursed
+                        </button>
+                        <button onClick={() => setDisbursingId(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
+                          Cancel
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {reviewing && (
         <LoanReviewModal loan={reviewing} onClose={() => setReviewing(null)} onApprove={onApprove} onDecline={(l) => onDecline(l, "declined")} />
@@ -682,93 +716,95 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
 
   return (
     <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-forest/10 text-left text-xs text-sage">
-            <th className="w-1"></th>
-            <th className="px-5 py-3 font-medium">Farmer</th>
-            <th className="px-5 py-3 font-medium">Installment</th>
-            <th className="px-5 py-3 font-medium">Due date</th>
-            <th className="px-5 py-3 font-medium text-right">Amount due</th>
-            <th className="px-5 py-3 font-medium text-right">Status</th>
-            <th className="px-5 py-3 font-medium text-right">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {repayments.length === 0 && (
-            <tr>
-              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet. Disburse a loan to generate one.</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[800px]">
+          <thead>
+            <tr className="border-b border-forest/10 text-left text-xs text-sage">
+              <th className="w-1"></th>
+              <th className="px-5 py-3 font-medium">Farmer</th>
+              <th className="px-5 py-3 font-medium">Installment</th>
+              <th className="px-5 py-3 font-medium">Due date</th>
+              <th className="px-5 py-3 font-medium text-right">Amount due</th>
+              <th className="px-5 py-3 font-medium text-right">Status</th>
+              <th className="px-5 py-3 font-medium text-right">Action</th>
             </tr>
-          )}
-          {repayments.map((r) => {
-            const status = computeStatus(r);
-            return (
-              <Fragment key={r.id}>
-                <tr className="border-b border-forest/5">
-                  <td className={`w-1 ${repaymentRailColor(status)}`}></td>
-                  <td className="px-5 py-3.5">
-                    <p className="font-medium text-ink">{r.loan_applications?.profiles?.full_name || r.loan_applications?.profiles?.email}</p>
-                    <p className="text-xs text-sage">{r.loan_applications?.purpose}</p>
-                  </td>
-                  <td className="px-5 py-3.5 text-ink/70">#{r.installment_number}</td>
-                  <td className="px-5 py-3.5 font-mono text-xs text-sage">{r.due_date}</td>
-                  <td className="px-5 py-3.5 text-right font-mono">{Number(r.amount_due).toLocaleString()} XAF</td>
-                  <td className="px-5 py-3.5 text-right"><RepaymentStatusBadge status={status} /></td>
-                  <td className="px-5 py-3.5 text-right">
-                    {status !== "paid" && (
-                      <button onClick={() => startPayment(r)} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
-                        Record payment
-                      </button>
-                    )}
-                    {status === "paid" && (
-                      <span className="font-mono text-xs text-sage">
-                        {new Date(r.paid_at).toLocaleDateString()} {r.payment_reference || "no ref"}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-                {payingFor === r.id && (
-                  <tr className="border-b border-forest/5 bg-forest/[0.015]">
-                    <td></td>
-                    <td colSpan={6} className="px-5 py-4">
-                      <div className="flex items-end gap-4 flex-wrap">
-                        <label className="block">
-                          <span className="text-xs font-medium text-ink/70 mb-1 block">Amount received (XAF)</span>
-                          <input
-                            type="number"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            className="w-36 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-xs font-medium text-ink/70 mb-1 block">Mobile money reference</span>
-                          <input
-                            type="text"
-                            value={reference}
-                            onChange={(e) => setReference(e.target.value)}
-                            placeholder="e.g. MTN-TXN-58213"
-                            className="w-48 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
-                          />
-                        </label>
-                        <button
-                          onClick={() => { onRecordPayment(r, Number(amount), reference); setPayingFor(null); }}
-                          className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark"
-                        >
-                          Confirm payment
+          </thead>
+          <tbody>
+            {repayments.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet. Disburse a loan to generate one.</td>
+              </tr>
+            )}
+            {repayments.map((r) => {
+              const status = computeStatus(r);
+              return (
+                <Fragment key={r.id}>
+                  <tr className="border-b border-forest/5">
+                    <td className={`w-1 ${repaymentRailColor(status)}`}></td>
+                    <td className="px-5 py-3.5">
+                      <p className="font-medium text-ink">{r.loan_applications?.profiles?.full_name || r.loan_applications?.profiles?.email}</p>
+                      <p className="text-xs text-sage">{r.loan_applications?.purpose}</p>
+                    </td>
+                    <td className="px-5 py-3.5 text-ink/70">#{r.installment_number}</td>
+                    <td className="px-5 py-3.5 font-mono text-xs text-sage">{r.due_date}</td>
+                    <td className="px-5 py-3.5 text-right font-mono">{Number(r.amount_due).toLocaleString()} XAF</td>
+                    <td className="px-5 py-3.5 text-right"><RepaymentStatusBadge status={status} /></td>
+                    <td className="px-5 py-3.5 text-right">
+                      {status !== "paid" && (
+                        <button onClick={() => startPayment(r)} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
+                          Record payment
                         </button>
-                        <button onClick={() => setPayingFor(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
-                          Cancel
-                        </button>
-                      </div>
+                      )}
+                      {status === "paid" && (
+                        <span className="font-mono text-xs text-sage">
+                          {new Date(r.paid_at).toLocaleDateString()} {r.payment_reference || "no ref"}
+                        </span>
+                      )}
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            );
-          })}
-        </tbody>
-      </table>
+                  {payingFor === r.id && (
+                    <tr className="border-b border-forest/5 bg-forest/[0.015]">
+                      <td></td>
+                      <td colSpan={6} className="px-5 py-4">
+                        <div className="flex items-end gap-4 flex-wrap">
+                          <label className="block">
+                            <span className="text-xs font-medium text-ink/70 mb-1 block">Amount received (XAF)</span>
+                            <input
+                              type="number"
+                              value={amount}
+                              onChange={(e) => setAmount(e.target.value)}
+                              className="w-36 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-medium text-ink/70 mb-1 block">Mobile money reference</span>
+                            <input
+                              type="text"
+                              value={reference}
+                              onChange={(e) => setReference(e.target.value)}
+                              placeholder="e.g. MTN-TXN-58213"
+                              className="w-48 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
+                            />
+                          </label>
+                          <button
+                            onClick={() => { onRecordPayment(r, Number(amount), reference); setPayingFor(null); }}
+                            className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark"
+                          >
+                            Confirm payment
+                          </button>
+                          <button onClick={() => setPayingFor(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
