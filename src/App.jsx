@@ -1,8 +1,9 @@
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
 import { Routes, Route, Navigate } from "react-router-dom";
+import Landing from "./pages/Landing";
 import SignUp from "./pages/SignUp";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Kyc from "./pages/Kyc";
 import Pending from "./pages/Pending";
 import FarmerDashboard from "./pages/FarmerDashboard";
@@ -13,7 +14,7 @@ import { RequireFarmer, RequireKycStatus, RequireAdmin } from "./components/Prot
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<Landing />} />
       <Route path="/signup" element={<SignUp />} />
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -50,7 +51,6 @@ export default function App() {
         }
       />
 
-      {/* Hidden admin path — not linked anywhere in the UI */}
       <Route path="/control-x9k2/login" element={<AdminLogin />} />
       <Route
         path="/control-x9k2"
@@ -61,7 +61,7 @@ export default function App() {
         }
       />
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
