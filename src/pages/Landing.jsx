@@ -1,3 +1,4 @@
+import pic4Image from "../assets/images/pic4.png";
 import { Link } from "react-router-dom";
 import {
   CheckCircle2, ShieldCheck, Smartphone, FileSignature,
@@ -72,7 +73,14 @@ export default function Landing() {
         </div>
       </div>
 
-      <div className="bg-white border-y border-forest/10">
+      <div
+  className="border-y border-forest/10"
+  style={{
+    backgroundImage: `linear-gradient(rgba(250, 249, 246, 0.55), rgba(250, 249, 246, 0.45)), url(${pic4Image})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  }}
+>
         <div className="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-2 gap-10">
           <div>
             <div className="w-11 h-11 rounded-full bg-forest/10 text-forest flex items-center justify-center mb-4">
