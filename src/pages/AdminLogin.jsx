@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
-import { Field } from "./SignUp";
+import { createAndSendOtp } from "../lib/otp";
+import OtpVerifyModal from "../components/OtpVerifyModal";
 
 export default function AdminLogin() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pendingUser, setPendingUser] = useState(null);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -27,19 +29,29 @@ export default function AdminLogin() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, full_name")
       .eq("id", data.user.id)
       .single();
 
-    setLoading(false);
-
     if (profile?.role !== "admin") {
+      setLoading(false);
       setError("This account does not have admin access.");
       await supabase.auth.signOut();
       return;
     }
 
+    await createAndSendOtp(data.user.id, data.user.email, profile?.full_name);
+    setLoading(false);
+    setPendingUser({ id: data.user.id, email: data.user.email });
+  };
+
+  const handleVerified = () => {
     navigate("/control-x9k2");
+  };
+
+  const handleCancel = async () => {
+    await supabase.auth.signOut();
+    setPendingUser(null);
   };
 
   return (
@@ -78,10 +90,19 @@ export default function AdminLogin() {
             disabled={loading}
             className="w-full bg-gold text-forestdark font-medium py-3 rounded-lg hover:brightness-110 transition disabled:opacity-60"
           >
-            {loading ? "Verifying…" : "Enter"}
+            {loading ? "Verifying..." : "Enter"}
           </button>
         </form>
       </div>
+
+      {pendingUser && (
+        <OtpVerifyModal
+          userId={pendingUser.id}
+          email={pendingUser.email}
+          onVerified={handleVerified}
+          onCancel={handleCancel}
+        />
+      )}
     </div>
   );
 }

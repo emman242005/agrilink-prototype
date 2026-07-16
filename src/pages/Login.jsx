@@ -3,11 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { AuthShell, Field } from "./SignUp";
 import { logLoginLocation } from "../lib/logLoginLocation";
+import { createAndSendOtp } from "../lib/otp";
+import OtpVerifyModal from "../components/OtpVerifyModal";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pendingUser, setPendingUser] = useState(null);
   const navigate = useNavigate();
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
@@ -22,17 +25,31 @@ export default function Login() {
       password: form.password,
     });
 
-    setLoading(false);
     if (error) {
+      setLoading(false);
       setError(error.message);
       return;
     }
 
-    if (data?.user?.id) {
-      logLoginLocation(data.user.id);
-    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", data.user.id)
+      .single();
 
+    await createAndSendOtp(data.user.id, data.user.email, profile?.full_name);
+    setLoading(false);
+    setPendingUser({ id: data.user.id, email: data.user.email });
+  };
+
+  const handleVerified = () => {
+    if (pendingUser) logLoginLocation(pendingUser.id);
     navigate("/kyc");
+  };
+
+  const handleCancel = async () => {
+    await supabase.auth.signOut();
+    setPendingUser(null);
   };
 
   return (
@@ -46,7 +63,7 @@ export default function Login() {
           disabled={loading}
           className="w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition disabled:opacity-60"
         >
-          {loading ? "Logging in…" : "Log in"}
+          {loading ? "Logging in..." : "Log in"}
         </button>
       </form>
       <p className="text-center text-sm text-sage mt-6">
@@ -55,6 +72,15 @@ export default function Login() {
           Create an account
         </Link>
       </p>
+
+      {pendingUser && (
+        <OtpVerifyModal
+          userId={pendingUser.id}
+          email={pendingUser.email}
+          onVerified={handleVerified}
+          onCancel={handleCancel}
+        />
+      )}
     </AuthShell>
   );
 }
