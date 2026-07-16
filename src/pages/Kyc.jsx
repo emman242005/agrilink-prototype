@@ -139,7 +139,7 @@ export default function Kyc() {
     <div
       className="min-h-screen"
       style={{
-        backgroundImage: `linear-gradient(rgba(250, 249, 246, 0.94), rgba(250, 249, 246, 0.97)), url(${bgImage})`,
+        backgroundImage: `linear-gradient(rgba(250, 249, 246, 0.45), rgba(250, 249, 246, 0.55)), url(${bgImage})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundAttachment: "fixed",
