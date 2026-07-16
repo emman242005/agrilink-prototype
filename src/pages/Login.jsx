@@ -57,6 +57,11 @@ export default function Login() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <Field label="Email" type="email" value={form.email} onChange={update("email")} required />
         <Field label="Password" type="password" value={form.password} onChange={update("password")} required />
+        <p className="text-right -mt-2">
+         <Link to="/forgot-password" className="text-xs text-sage hover:text-forest underline underline-offset-4">
+           Forgot password?
+         </Link>
+        </p>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
