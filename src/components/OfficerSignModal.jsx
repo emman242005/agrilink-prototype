@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { sendEmail } from "../lib/sendEmail";
 
 export default function OfficerSignModal({ loan, officerName, onClose, onSigned }) {
   const [signatureName, setSignatureName] = useState("");
@@ -26,6 +27,26 @@ export default function OfficerSignModal({ loan, officerName, onClose, onSigned 
       setError(updateError.message);
       return;
     }
+
+    const fullDocument = `${loan.agreement_text}
+
+SIGNATURES
+
+Borrower: ${loan.farmer_signature}
+Signed: ${new Date(loan.farmer_signed_at).toLocaleString()}
+
+Loan Officer: ${signatureName.trim()}
+Signed: ${new Date().toLocaleString()}
+
+This agreement is now fully executed. Your loan will be disbursed to your registered mobile money account shortly.`;
+
+    await sendEmail(
+      loan.profiles?.email,
+      loan.profiles?.full_name,
+      "Your AgriLink Loan Agreement, Fully Executed",
+      fullDocument
+    );
+
     onSigned();
     onClose();
   };
@@ -73,7 +94,7 @@ export default function OfficerSignModal({ loan, officerName, onClose, onSigned 
             disabled={saving}
             className="w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition disabled:opacity-60"
           >
-            {saving ? "Signing..." : "Countersign"}
+            {saving ? "Signing..." : "Countersign & Send Agreement"}
           </button>
         </div>
       </div>

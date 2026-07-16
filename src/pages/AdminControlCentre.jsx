@@ -177,10 +177,20 @@ export default function AdminControlCentre() {
       type: "success",
     });
 
+    const scheduleText = schedule
+      .map((s) => `Installment ${s.installment_number}: ${s.amount_due.toLocaleString()} XAF, due ${s.due_date}`)
+      .join("\n");
+
     await sendEmail(
       loan.profiles?.email,
       "Your AgriLink loan has been disbursed",
-      `${Number(loan.amount_requested).toLocaleString()} XAF was sent to your ${loan.profiles?.mobile_money_provider || "mobile money"} number ${loan.profiles?.mobile_money_number || ""}. Reference: ${reference}. Log in to view your repayment schedule.`,
+      `${Number(loan.amount_requested).toLocaleString()} XAF was sent to your ${loan.profiles?.mobile_money_provider || "mobile money"} number ${loan.profiles?.mobile_money_number || ""}. Reference: ${reference}.
+
+REPAYMENT SCHEDULE
+
+${scheduleText}
+
+Log in to AgriLink to track your repayments.`,
       loan.profiles?.full_name
     );
 
@@ -282,7 +292,7 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
         ))}
       </nav>
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v1.2 prototype</p>
+        <p className="font-mono text-[10px] text-paper/30">v1.3 prototype</p>
       </div>
     </aside>
   );
