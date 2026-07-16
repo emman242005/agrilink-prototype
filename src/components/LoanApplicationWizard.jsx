@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import {
-  MapPin, Wheat, Landmark, Wallet, Calendar, Upload, Check,
+  MapPin, Wheat, Wallet, Calendar, Upload, Check,
   ChevronRight, ChevronLeft, X, FileImage, FileText,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
 const PURPOSES = ["Seeds", "Irrigation", "Machinery", "Fertilizer", "Other"];
 const DURATIONS = [6, 12, 18];
-const ESTIMATED_RATE = 12; // placeholder, final rate set by the MFI at review
+const ESTIMATED_RATE = 12;
 
 export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
   const [step, setStep] = useState(1);
@@ -19,6 +19,24 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
     amount: "", purpose: "", duration: 12,
   });
   const [files, setFiles] = useState({ landProof: null, farmPhoto: null });
+  const [coords, setCoords] = useState(null);
+  const [locationStatus, setLocationStatus] = useState("idle");
+
+  const captureLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus("denied");
+      return;
+    }
+    setLocationStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationStatus("done");
+      },
+      () => setLocationStatus("denied"),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   useEffect(() => {
     const prefill = async () => {
@@ -70,6 +88,8 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
           crop_type: form.cropType,
           estimated_yield: form.estimatedYield || null,
           preferred_duration_months: form.duration,
+          latitude: coords ? coords.lat : null,
+          longitude: coords ? coords.lng : null,
         })
         .select()
         .single();
@@ -123,7 +143,6 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
           </button>
         </div>
 
-        {/* Step indicator */}
         <div className="px-6 pt-5 pb-2">
           <div className="flex items-center">
             {steps.map((s, i) => (
@@ -155,6 +174,29 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
               <StepField icon={<MapPin size={16} />} label="Location" value={form.location} onChange={update("location")} placeholder="e.g. West Region, CM" />
               <StepField icon={<Wheat size={16} />} label="Primary crop type" value={form.cropType} onChange={update("cropType")} placeholder="e.g. Cocoa" />
               <StepField icon={<Wheat size={16} />} label="Estimated annual yield (optional)" value={form.estimatedYield} onChange={update("estimatedYield")} placeholder="e.g. 800kg" />
+
+              <div className="border border-forest/15 rounded-lg p-4">
+                <p className="text-sm font-medium text-ink/80 mb-1">Pin your exact farm location</p>
+                <p className="text-xs text-sage mb-3">Optional, but helps your MFI verify the farm site.</p>
+                {locationStatus === "idle" && (
+                  <button
+                    type="button"
+                    onClick={captureLocation}
+                    className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5"
+                  >
+                    Capture my current location
+                  </button>
+                )}
+                {locationStatus === "loading" && <p className="text-xs text-sage">Getting your location...</p>}
+                {locationStatus === "done" && coords && (
+                  <p className="text-xs text-forest">
+                    Location captured ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})
+                  </p>
+                )}
+                {locationStatus === "denied" && (
+                  <p className="text-xs text-gold">Couldn't access location, you can still submit without it.</p>
+                )}
+              </div>
             </div>
           )}
 
@@ -227,10 +269,11 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
           {step === 4 && (
             <div className="space-y-4">
               <div className="bg-forest/5 rounded-xl p-4 space-y-2 text-sm">
-                <SummaryRow label="Farm" value={`${form.farmSize} ha · ${form.cropType} · ${form.location}`} />
+                <SummaryRow label="Farm" value={`${form.farmSize} ha, ${form.cropType}, ${form.location}`} />
                 <SummaryRow label="Amount requested" value={`${Number(form.amount || 0).toLocaleString()} XAF`} />
-                <SummaryRow label="Purpose" value={form.purpose || "—"} />
+                <SummaryRow label="Purpose" value={form.purpose || "not set"} />
                 <SummaryRow label="Preferred duration" value={`${form.duration} months`} />
+                <SummaryRow label="GPS location" value={coords ? "Captured" : "Not captured"} />
               </div>
 
               <div className="bg-mint/10 border border-mint/30 rounded-xl p-4">
@@ -239,7 +282,7 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
                   {monthlyEstimate().toLocaleString()} XAF<span className="text-sm font-normal text-sage">/mo</span>
                 </p>
                 <p className="text-[11px] text-sage mt-1">
-                  Based on a placeholder {ESTIMATED_RATE}% rate — your MFI sets the final rate and term at approval.
+                  Based on a placeholder {ESTIMATED_RATE}% rate. Your MFI sets the final rate and term at approval.
                 </p>
               </div>
 
@@ -271,7 +314,7 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
               disabled={loading}
               className="flex items-center gap-1 text-sm font-medium px-5 py-2.5 rounded-lg bg-forest text-paper hover:bg-forestdark transition disabled:opacity-60"
             >
-              {loading ? "Submitting…" : "Submit to MFI"}
+              {loading ? "Submitting..." : "Submit to MFI"}
             </button>
           )}
         </div>

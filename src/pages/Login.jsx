@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { AuthShell, Field } from "./SignUp";
+import { logLoginLocation } from "../lib/logLoginLocation";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -16,7 +17,7 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,
     });
@@ -26,6 +27,11 @@ export default function Login() {
       setError(error.message);
       return;
     }
+
+    if (data?.user?.id) {
+      logLoginLocation(data.user.id);
+    }
+
     navigate("/kyc");
   };
 

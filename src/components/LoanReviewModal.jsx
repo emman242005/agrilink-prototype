@@ -88,6 +88,16 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
             <InfoRow label="Crop type" value={loan.crop_type || "—"} />
             <InfoRow label="Estimated yield" value={loan.estimated_yield || "—"} />
             <InfoRow label="Preferred duration" value={loan.preferred_duration_months ? `${loan.preferred_duration_months} months` : "—"} />
+            <InfoRow
+              label="GPS location"
+              value={
+                loan.latitude
+                  ? <a href={`https://www.google.com/maps?q=${loan.latitude},${loan.longitude}`} target="_blank" rel="noreferrer" className="text-forest underline">
+                      View on map
+                    </a>
+                  : "Not captured"
+              }
+            />
             <InfoRow label="Submitted" value={new Date(loan.submitted_at).toLocaleDateString()} />
             <InfoRow
               label="Mobile money"

@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment } from "react";
+﻿import { useEffect, useState, Fragment } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
@@ -77,7 +77,7 @@ export default function AdminControlCentre() {
       submission.profiles?.email,
       decision === "approved" ? "Your AgriLink verification was approved" : "Your AgriLink verification needs attention",
       decision === "approved"
-        ? "Good news — your identity verification was approved. You can now log in and apply for a loan."
+        ? "Good news, your identity verification was approved. You can now log in and apply for a loan."
         : "Your identity verification was not approved this time. Please log in, review your submitted documents, and resubmit."
     );
 
@@ -197,7 +197,7 @@ export default function AdminControlCentre() {
     if (loan) {
       await supabase.from("notifications").insert({
         user_id: loan.user_id,
-        message: `Payment of ${amountPaid.toLocaleString()} XAF for installment #${repayment.installment_number} was recorded. Ref: ${reference || "—"}.`,
+        message: `Payment of ${amountPaid.toLocaleString()} XAF for installment #${repayment.installment_number} was recorded. Ref: ${reference || "none"}.`,
         type: "success",
       });
     }
@@ -245,10 +245,10 @@ export default function AdminControlCentre() {
 
 function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
   const items = [
-    { key: "overview", label: "Overview", icon: "◫" },
-    { key: "kyc", label: "KYC Review", icon: "◈", badge: pendingKyc },
-    { key: "loans", label: "Loan Approvals", icon: "◇", badge: pendingLoans },
-    { key: "repayments", label: "Repayments", icon: "◆", badge: dueOrOverdue },
+    { key: "overview", label: "Overview", badge: 0 },
+    { key: "kyc", label: "KYC Review", badge: pendingKyc },
+    { key: "loans", label: "Loan Approvals", badge: pendingLoans },
+    { key: "repayments", label: "Repayments", badge: dueOrOverdue },
   ];
 
   return (
@@ -266,10 +266,7 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
               tab === item.key ? "bg-paper/10 text-paper" : "text-paper/50 hover:text-paper/80 hover:bg-paper/5"
             }`}
           >
-            <span className="flex items-center gap-2.5">
-              <span className="text-base leading-none">{item.icon}</span>
-              {item.label}
-            </span>
+            <span>{item.label}</span>
             {item.badge > 0 && (
               <span className="bg-gold text-forestdark text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full">{item.badge}</span>
             )}
@@ -299,10 +296,7 @@ function TopBar({ email, onSignOut, tab }) {
 }
 
 function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursement, totalDisbursed, kycQueue, loanQueue, setTab }) {
-  const avgRiskScore = kycQueue.length > 0
-    ? Math.round(kycQueue.reduce((sum, k) => sum + computeRiskScore(k).score, 0) / kycQueue.length)
-    : 0;
-
+  const avgRiskScore = kycQueue.length > 0 ? Math.round(kycQueue.reduce((sum, k) => sum + computeRiskScore(k).score, 0) / kycQueue.length) : 0;
   const recentActivity = [...kycQueue, ...loanQueue].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)).slice(0, 6);
   const growthData = buildGrowthData(kycQueue);
   const volumeData = buildVolumeData(loanQueue);
@@ -375,7 +369,7 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
             <div key={item.id} className={`flex items-center gap-4 px-5 py-3 ${i !== 0 ? "border-t border-forest/5" : ""}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${statusDot(item.status)}`} />
               <span className="text-sm text-ink/80 flex-1">
-                {isKyc ? "KYC submission" : "Loan application"} · {item.full_name || item.profiles?.full_name || item.profiles?.email}
+                {isKyc ? "KYC submission" : "Loan application"} for {item.full_name || item.profiles?.full_name || item.profiles?.email}
               </span>
               <span className="font-mono text-xs text-sage">{new Date(item.submitted_at).toLocaleDateString()}</span>
             </div>
@@ -477,7 +471,7 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
                 <p className="font-medium text-ink">{k.full_name}</p>
                 <p className="font-mono text-xs text-sage">{k.profiles?.email}</p>
               </td>
-              <td className="px-5 py-3.5 text-ink/70">{k.crop} · {k.farm_size}</td>
+              <td className="px-5 py-3.5 text-ink/70">{k.crop} - {k.farm_size}</td>
               <td className="px-5 py-3.5 text-ink/70">{k.region}</td>
               <td className="px-5 py-3.5 text-right"><RiskBadge kyc={k} /></td>
               <td className="px-5 py-3.5 font-mono text-xs text-sage">{new Date(k.submitted_at).toLocaleDateString()}</td>
@@ -509,7 +503,7 @@ function RiskBadge({ kyc }) {
   const style = RISK_BAND_STYLES[band];
   return (
     <span className={`font-mono text-[10px] px-2.5 py-1 rounded-full ${style.className}`}>
-      {score}/{maxScore} · {style.label}
+      {score}/{maxScore} {style.label}
     </span>
   );
 }
@@ -581,7 +575,7 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
                     <div className="flex items-end gap-4">
                       <label className="block flex-1 max-w-xs">
                         <span className="text-xs font-medium text-ink/70 mb-1 block">
-                          Mobile money transaction reference <span className="text-sage font-normal">(auto-generated, edit if you have the real one)</span>
+                          Mobile money transaction reference (auto-generated, edit if you have the real one)
                         </span>
                         <input
                           type="text"
@@ -661,7 +655,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
         <tbody>
           {repayments.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet — approve and disburse a loan to generate one.</td>
+              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet. Approve and disburse a loan to generate one.</td>
             </tr>
           )}
           {repayments.map((r) => {
@@ -686,7 +680,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                     )}
                     {status === "paid" && (
                       <span className="font-mono text-xs text-sage">
-                        {new Date(r.paid_at).toLocaleDateString()} · {r.payment_reference || "no ref"}
+                        {new Date(r.paid_at).toLocaleDateString()} {r.payment_reference || "no ref"}
                       </span>
                     )}
                   </td>
