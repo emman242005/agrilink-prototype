@@ -20,7 +20,8 @@ export default function ForgotPassword() {
 
     setLoading(false);
     if (error) {
-      setError(error.message);
+      console.error("Reset password error:", error);
+      setError(error.message || error.error_description || JSON.stringify(error) || "Something went wrong. Please try again.");
       return;
     }
     setSent(true);
