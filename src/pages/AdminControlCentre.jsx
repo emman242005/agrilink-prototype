@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import KycReviewModal from "../components/KycReviewModal";
 import LoanReviewModal from "../components/LoanReviewModal";
+import OfficerSignModal from "../components/OfficerSignModal";
 import { computeRiskScore, RISK_BAND_STYLES } from "../lib/riskScore";
 
 export default function AdminControlCentre() {
@@ -142,23 +143,19 @@ export default function AdminControlCentre() {
       })
       .eq("id", loan.id);
 
-    const schedule = generateSchedule(loan, interestRate, termMonths);
-    await supabase.from("loan_repayments").insert(schedule);
-
     await supabase.from("notifications").insert({
       user_id: loan.user_id,
-      message: `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% over ${termMonths} months. It will be disbursed to your mobile money number shortly.`,
+      message: `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% over ${termMonths} months. Please log in to review and sign the loan agreement.`,
       type: "success",
     });
 
     await sendEmail(
       loan.profiles?.email,
-      "Your AgriLink loan was approved",
-      `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% interest over ${termMonths} months. It will be disbursed to your mobile money number shortly.`
+      "Your AgriLink loan was approved, action needed",
+      `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% interest over ${termMonths} months. Please log in to review and sign the loan agreement before funds can be disbursed.`
     );
 
     loadLoans();
-    loadRepayments();
   };
 
   const markDisbursed = async (loan, reference) => {
@@ -171,6 +168,9 @@ export default function AdminControlCentre() {
         disbursed_by: session.user.id,
       })
       .eq("id", loan.id);
+
+    const schedule = generateSchedule(loan, loan.interest_rate, loan.term_months);
+    await supabase.from("loan_repayments").insert(schedule);
 
     await supabase.from("notifications").insert({
       user_id: loan.user_id,
@@ -185,6 +185,7 @@ export default function AdminControlCentre() {
     );
 
     loadLoans();
+    loadRepayments();
   };
 
   const recordPayment = async (repayment, amountPaid, reference) => {
@@ -207,7 +208,7 @@ export default function AdminControlCentre() {
 
   const pendingKyc = kycQueue.filter((k) => k.status === "pending").length;
   const pendingLoans = loanQueue.filter((l) => l.status === "pending").length;
-  const awaitingDisbursement = loanQueue.filter((l) => l.status === "approved").length;
+  const awaitingDisbursement = loanQueue.filter((l) => l.status === "approved" && l.officer_signature).length;
   const totalDisbursed = loanQueue.filter((l) => l.status === "disbursed").reduce((sum, l) => sum + Number(l.amount_requested), 0);
   const uniqueFarmers = new Set(kycQueue.map((k) => k.user_id)).size;
   const dueOrOverdue = repayments.filter((r) => r.status !== "paid" && new Date(r.due_date) <= new Date()).length;
@@ -234,7 +235,14 @@ export default function AdminControlCentre() {
           )}
           {tab === "kyc" && <KycTable kycQueue={kycQueue} onApprove={decideKyc} onDeny={decideKyc} />}
           {tab === "loans" && (
-            <LoansTable loanQueue={loanQueue} onApprove={approveLoanWithTerms} onDecline={decideLoan} onDisburse={markDisbursed} />
+            <LoansTable
+              loanQueue={loanQueue}
+              onApprove={approveLoanWithTerms}
+              onDecline={decideLoan}
+              onDisburse={markDisbursed}
+              officerEmail={session?.user?.email}
+              reloadLoans={loadLoans}
+            />
           )}
           {tab === "repayments" && <RepaymentsTable repayments={repayments} onRecordPayment={recordPayment} />}
         </main>
@@ -274,7 +282,7 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
         ))}
       </nav>
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v1.0 prototype</p>
+        <p className="font-mono text-[10px] text-paper/30">v1.1 prototype</p>
       </div>
     </aside>
   );
@@ -308,7 +316,7 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
         <StatTile label="Registered farmers" value={uniqueFarmers} />
         <StatTile label="Pending KYC" value={pendingKyc} accent={pendingKyc > 0 ? "gold" : null} onClick={() => setTab("kyc")} />
         <StatTile label="Pending loans" value={pendingLoans} accent={pendingLoans > 0 ? "gold" : null} onClick={() => setTab("loans")} />
-        <StatTile label="Awaiting disbursement" value={awaitingDisbursement} accent={awaitingDisbursement > 0 ? "gold" : null} onClick={() => setTab("loans")} />
+        <StatTile label="Ready to disburse" value={awaitingDisbursement} accent={awaitingDisbursement > 0 ? "gold" : null} onClick={() => setTab("loans")} />
         <StatTile label="Total disbursed" value={`${totalDisbursed.toLocaleString()} XAF`} mono />
         <StatTile label="Avg. risk score" value={`${avgRiskScore}/100`} mono />
       </div>
@@ -471,7 +479,7 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
                 <p className="font-medium text-ink">{k.full_name}</p>
                 <p className="font-mono text-xs text-sage">{k.profiles?.email}</p>
               </td>
-              <td className="px-5 py-3.5 text-ink/70">{k.crop} - {k.farm_size}</td>
+              <td className="px-5 py-3.5 text-ink/70">{k.crop}, {k.farm_size}</td>
               <td className="px-5 py-3.5 text-ink/70">{k.region}</td>
               <td className="px-5 py-3.5 text-right"><RiskBadge kyc={k} /></td>
               <td className="px-5 py-3.5 font-mono text-xs text-sage">{new Date(k.submitted_at).toLocaleDateString()}</td>
@@ -508,8 +516,9 @@ function RiskBadge({ kyc }) {
   );
 }
 
-function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
+function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail, reloadLoans }) {
   const [reviewing, setReviewing] = useState(null);
+  const [signing, setSigning] = useState(null);
   const [disbursingId, setDisbursingId] = useState(null);
   const [reference, setReference] = useState("");
 
@@ -553,7 +562,21 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
                     <button onClick={() => setReviewing(l)} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5">
                       Review
                     </button>
-                    {l.status === "approved" && (
+
+                    {l.status === "approved" && !l.farmer_signature && (
+                      <span className="text-xs text-sage px-3 py-1.5">Awaiting farmer signature</span>
+                    )}
+
+                    {l.status === "approved" && l.farmer_signature && !l.officer_signature && (
+                      <button
+                        onClick={() => setSigning(l)}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
+                      >
+                        Countersign
+                      </button>
+                    )}
+
+                    {l.status === "approved" && l.officer_signature && (
                       <button
                         onClick={() => {
                           const isOpen = disbursingId === l.id;
@@ -607,6 +630,15 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse }) {
       {reviewing && (
         <LoanReviewModal loan={reviewing} onClose={() => setReviewing(null)} onApprove={onApprove} onDecline={(l) => onDecline(l, "declined")} />
       )}
+
+      {signing && (
+        <OfficerSignModal
+          loan={signing}
+          officerName={officerEmail}
+          onClose={() => setSigning(null)}
+          onSigned={reloadLoans}
+        />
+      )}
     </div>
   );
 }
@@ -655,7 +687,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
         <tbody>
           {repayments.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet. Approve and disburse a loan to generate one.</td>
+              <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet. Disburse a loan to generate one.</td>
             </tr>
           )}
           {repayments.map((r) => {

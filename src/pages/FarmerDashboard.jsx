@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import {
   Sprout, Droplets, Wallet, ShieldCheck, MapPin, Plus,
-  CheckCircle2, Circle, Clock3, Wheat, Smartphone,
+  CheckCircle2, Circle, Clock3, Wheat, Smartphone, FileSignature,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import NotificationBell from "../components/NotificationBell";
 import LoanApplicationWizard from "../components/LoanApplicationWizard";
 import PaymentSettingsModal from "../components/PaymentSettingsModal";
+import SignAgreementModal from "../components/SignAgreementModal";
 import bgImage from "../assets/images/pic3.png";
 
 export default function FarmerDashboard() {
@@ -17,6 +18,7 @@ export default function FarmerDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [showCropNote, setShowCropNote] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [signingLoan, setSigningLoan] = useState(null);
 
   const loadLoans = async () => {
     const { data } = await supabase
@@ -134,16 +136,28 @@ export default function FarmerDashboard() {
           </div>
         )}
 
+        {loans.some((l) => l.status === "approved" && !l.farmer_signature) && (
+          <div className="mb-6 bg-mint/10 border border-mint/30 rounded-xl px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+            <p className="text-sm text-forest">Your loan was approved. Please review and sign the agreement to proceed.</p>
+            <button
+              onClick={() => setSigningLoan(loans.find((l) => l.status === "approved" && !l.farmer_signature))}
+              className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
+            >
+              Sign now
+            </button>
+          </div>
+        )}
+
         {showCropNote && (
           <div className="mb-6 bg-mint/10 border border-mint/30 rounded-xl px-4 py-3 flex items-center justify-between">
-            <p className="text-sm text-forest">Crop tracking is coming soon — this will let you log plots and monitor yield here.</p>
+            <p className="text-sm text-forest">Crop tracking is coming soon, this will let you log plots and monitor yield here.</p>
             <button onClick={() => setShowCropNote(false)} className="text-sage hover:text-forest text-lg leading-none px-2">×</button>
           </div>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <MetricCard icon={<Sprout size={18} />} label="Crop yield" value="84%" sub="Healthy · illustrative" accent="mint" />
-          <MetricCard icon={<Droplets size={18} />} label="Soil moisture" value="42%" sub="Rain expected · illustrative" accent="gold" />
+          <MetricCard icon={<Sprout size={18} />} label="Crop yield" value="84%" sub="Healthy, illustrative" accent="mint" />
+          <MetricCard icon={<Droplets size={18} />} label="Soil moisture" value="42%" sub="Rain expected, illustrative" accent="gold" />
           <MetricCard
             icon={<Wallet size={18} />}
             label="Total disbursed"
@@ -166,14 +180,14 @@ export default function FarmerDashboard() {
             <h2 className="font-display text-base font-semibold text-forest">Loan pipeline</h2>
             {latestLoan && (
               <span className="font-mono text-xs text-sage">
-                {Number(latestLoan.amount_requested).toLocaleString()} XAF · {latestLoan.purpose}
+                {Number(latestLoan.amount_requested).toLocaleString()} XAF, {latestLoan.purpose}
               </span>
             )}
           </div>
           {!latestLoan ? (
-            <p className="text-sm text-sage">No active loan applications — apply above to start the process.</p>
+            <p className="text-sm text-sage">No active loan applications, apply above to start the process.</p>
           ) : (
-            <Pipeline status={latestLoan.status} />
+            <Pipeline loan={latestLoan} />
           )}
         </div>
 
@@ -197,14 +211,16 @@ export default function FarmerDashboard() {
                 <div key={r.id} className="flex items-start gap-2.5">
                   <Clock3 size={15} className="text-gold mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm text-ink/80">{Number(r.amount_due).toLocaleString()} XAF due</p>
+                    <p className="text-sm text-ink/80">
+                      {Number(r.amount_due).toLocaleString()} XAF due
+                    </p>
                     <p className="font-mono text-xs text-sage">{r.due_date}</p>
                   </div>
                 </div>
               ))}
               <div className="flex items-start gap-2.5 pt-2 border-t border-forest/5">
                 <Wheat size={15} className="text-mint mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-ink/60">Market prices steady this week — illustrative</p>
+                <p className="text-sm text-ink/60">Market prices steady this week, illustrative</p>
               </div>
             </div>
           </div>
@@ -229,6 +245,15 @@ export default function FarmerDashboard() {
           />
         )}
 
+        {signingLoan && (
+          <SignAgreementModal
+            loan={signingLoan}
+            farmerName={profile?.full_name || session.user.email}
+            onClose={() => setSigningLoan(null)}
+            onSigned={loadLoans}
+          />
+        )}
+
         <h2 className="font-display text-xl font-semibold text-forest mb-4">Your applications</h2>
         {loans.length === 0 && <p className="text-sage text-sm">No loan applications yet.</p>}
         <div className="space-y-3">
@@ -240,13 +265,27 @@ export default function FarmerDashboard() {
                   <p className="text-sm text-ink/60">{loan.purpose}</p>
                   {(loan.status === "approved" || loan.status === "disbursed") && (
                     <p className="text-xs text-sage mt-1">
-                      {loan.interest_rate}% interest · {loan.term_months} months
+                      {loan.interest_rate}% interest, {loan.term_months} months
                     </p>
                   )}
                   {loan.status === "disbursed" && (
                     <p className="text-xs text-forest mt-1">
-                      Disbursed {new Date(loan.disbursed_at).toLocaleDateString()} · ref: {loan.disbursement_reference}
+                      Disbursed {new Date(loan.disbursed_at).toLocaleDateString()}, ref: {loan.disbursement_reference}
                     </p>
+                  )}
+                  {loan.status === "approved" && !loan.farmer_signature && (
+                    <button
+                      onClick={() => setSigningLoan(loan)}
+                      className="flex items-center gap-1 text-xs font-medium text-forest underline mt-2"
+                    >
+                      <FileSignature size={13} /> Review & sign agreement
+                    </button>
+                  )}
+                  {loan.status === "approved" && loan.farmer_signature && !loan.officer_signature && (
+                    <p className="text-xs text-gold mt-2">Signed, awaiting loan officer countersignature</p>
+                  )}
+                  {loan.status === "approved" && loan.farmer_signature && loan.officer_signature && (
+                    <p className="text-xs text-forest mt-2">Fully signed, awaiting disbursement</p>
                   )}
                 </div>
                 <StatusPill status={loan.status} />
@@ -257,7 +296,7 @@ export default function FarmerDashboard() {
                   {repayments[loan.id].map((r) => (
                     <div key={r.id} className="flex items-center justify-between text-sm">
                       <span className="text-ink/70">
-                        Installment {r.installment_number} · due {r.due_date}
+                        Installment {r.installment_number}, due {r.due_date}
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="font-mono">{Number(r.amount_due).toLocaleString()} XAF</span>
@@ -285,20 +324,24 @@ function MetricCard({ icon, label, value, sub, accent, mono }) {
 
   return (
     <div className="bg-white border border-forest/10 rounded-2xl p-5 hover:border-forest/25 hover:-translate-y-0.5 transition">
-      <div className={`w-9 h-9 rounded-full flex items-center justify-center mb-3 ${accentBg}`}>{icon}</div>
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center mb-3 ${accentBg}`}>
+        {icon}
+      </div>
       <p className="text-xs text-sage mb-1">{label}</p>
-      <p className={`font-display font-semibold text-forest ${mono ? "font-mono text-lg" : "text-2xl"}`}>{value}</p>
+      <p className={`font-display font-semibold text-forest ${mono ? "font-mono text-lg" : "text-2xl"}`}>
+        {value}
+      </p>
       <p className="text-[11px] text-sage/80 mt-1">{sub}</p>
     </div>
   );
 }
 
-function Pipeline({ status }) {
+function Pipeline({ loan }) {
   const steps = [
     { key: "applied", label: "Applied", done: true },
     { key: "verified", label: "Verified", done: true },
-    { key: "approved", label: "Approved", done: status === "approved" || status === "disbursed" },
-    { key: "disbursed", label: "Disbursed", done: status === "disbursed" },
+    { key: "signed", label: "Signed", done: !!loan.officer_signature },
+    { key: "disbursed", label: "Disbursed", done: loan.status === "disbursed" },
   ];
 
   return (
@@ -306,7 +349,9 @@ function Pipeline({ status }) {
       {steps.map((step, i) => (
         <div key={step.key} className="flex items-center flex-1 last:flex-none">
           <div className="flex flex-col items-center gap-2">
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center ${step.done ? "bg-forest text-paper" : "bg-forest/10 text-sage"}`}>
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
+              step.done ? "bg-forest text-paper" : "bg-forest/10 text-sage"
+            }`}>
               {step.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
             </div>
             <span className={`text-[10px] md:text-xs font-medium whitespace-nowrap ${step.done ? "text-forest" : "text-sage"}`}>
@@ -327,13 +372,21 @@ function FarmPlotGrid() {
     const seed = (i * 37) % 100;
     return seed > 70 ? "healthy" : seed > 40 ? "growing" : "fallow";
   });
-  const plotColor = { healthy: "bg-forest", growing: "bg-mint", fallow: "bg-forest/10" };
+  const plotColor = {
+    healthy: "bg-forest",
+    growing: "bg-mint",
+    fallow: "bg-forest/10",
+  };
 
   return (
     <div>
       <div className="grid grid-cols-8 gap-1.5 mb-4">
         {plots.map((state, i) => (
-          <div key={i} className={`aspect-square rounded-md ${plotColor[state]} hover:scale-110 transition cursor-pointer`} title={state} />
+          <div
+            key={i}
+            className={`aspect-square rounded-md ${plotColor[state]} hover:scale-110 transition cursor-pointer`}
+            title={state}
+          />
         ))}
       </div>
       <div className="flex gap-4 text-xs text-sage">
@@ -360,7 +413,11 @@ function StatusPill({ status }) {
     disbursed: "bg-forest/10 text-forest",
     declined: "bg-red-100 text-red-600",
   };
-  return <span className={`font-mono text-xs px-3 py-1.5 rounded-full ${styles[status]}`}>{status.toUpperCase()}</span>;
+  return (
+    <span className={`font-mono text-xs px-3 py-1.5 rounded-full ${styles[status]}`}>
+      {status.toUpperCase()}
+    </span>
+  );
 }
 
 function RepaymentPill({ status }) {
@@ -370,5 +427,9 @@ function RepaymentPill({ status }) {
     paid: "bg-forest/10 text-forest",
     overdue: "bg-red-100 text-red-600",
   };
-  return <span className={`font-mono text-[10px] px-2 py-1 rounded-full ${styles[status]}`}>{status.toUpperCase()}</span>;
+  return (
+    <span className={`font-mono text-[10px] px-2 py-1 rounded-full ${styles[status]}`}>
+      {status.toUpperCase()}
+    </span>
+  );
 }
