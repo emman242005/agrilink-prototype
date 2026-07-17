@@ -232,12 +232,10 @@ Log in to AgriLink to track your repayments.`,
 
   return (
     <div className="min-h-screen bg-paper flex">
-      {/* Desktop sidebar */}
       <div className="hidden md:block">
         <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} />
       </div>
 
-      {/* Mobile sidebar overlay */}
       {mobileNavOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/50" onClick={() => setMobileNavOpen(false)} />
@@ -317,7 +315,7 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
         ))}
       </nav>
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v1.4 prototype</p>
+        <p className="font-mono text-[10px] text-paper/30">v1.5 prototype</p>
       </div>
     </aside>
   );
@@ -344,7 +342,7 @@ function TopBar({ email, onSignOut, tab, onMenuClick }) {
 }
 
 function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursement, totalDisbursed, kycQueue, loanQueue, setTab }) {
-  const avgRiskScore = kycQueue.length > 0 ? Math.round(kycQueue.reduce((sum, k) => sum + computeRiskScore(k).score, 0) / kycQueue.length) : 0;
+  const avgRiskScore = loanQueue.length > 0 ? Math.round(loanQueue.reduce((sum, l) => sum + computeRiskScore(l).score, 0) / loanQueue.length) : 0;
   const recentActivity = [...kycQueue, ...loanQueue].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)).slice(0, 6);
   const growthData = buildGrowthData(kycQueue);
   const volumeData = buildVolumeData(loanQueue);
@@ -358,7 +356,7 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
         <StatTile label="Pending loans" value={pendingLoans} accent={pendingLoans > 0 ? "gold" : null} onClick={() => setTab("loans")} />
         <StatTile label="Ready to disburse" value={awaitingDisbursement} accent={awaitingDisbursement > 0 ? "gold" : null} onClick={() => setTab("loans")} />
         <StatTile label="Total disbursed" value={`${totalDisbursed.toLocaleString()} XAF`} mono />
-        <StatTile label="Avg. risk score" value={`${avgRiskScore}/100`} mono />
+        <StatTile label="Avg. loan risk score" value={`${avgRiskScore}/100`} mono />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
@@ -412,7 +410,7 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
       <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
         {recentActivity.length === 0 && <p className="text-sage text-sm px-5 py-6">No activity yet.</p>}
         {recentActivity.map((item, i) => {
-          const isKyc = "national_id" in item;
+          const isKyc = "region" in item;
           return (
             <div key={item.id} className={`flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 ${i !== 0 ? "border-t border-forest/5" : ""}`}>
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(item.status)}`} />
@@ -494,14 +492,14 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
   return (
     <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[800px]">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="border-b border-forest/10 text-left text-xs text-sage">
               <th className="w-1"></th>
               <th className="px-5 py-3 font-medium">Farmer</th>
-              <th className="px-5 py-3 font-medium">Crop / farm</th>
+              <th className="px-5 py-3 font-medium">Phone</th>
+              <th className="px-5 py-3 font-medium">Age</th>
               <th className="px-5 py-3 font-medium">Region</th>
-              <th className="px-5 py-3 font-medium text-right">Risk score</th>
               <th className="px-5 py-3 font-medium">Submitted</th>
               <th className="px-5 py-3 font-medium text-right">Status</th>
               <th className="px-5 py-3 font-medium text-right">Action</th>
@@ -520,9 +518,9 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
                   <p className="font-medium text-ink">{k.full_name}</p>
                   <p className="font-mono text-xs text-sage">{k.profiles?.email}</p>
                 </td>
-                <td className="px-5 py-3.5 text-ink/70">{k.crop}, {k.farm_size}</td>
+                <td className="px-5 py-3.5 text-ink/70">{k.phone || "—"}</td>
+                <td className="px-5 py-3.5 text-ink/70">{k.age || "—"}</td>
                 <td className="px-5 py-3.5 text-ink/70">{k.region}</td>
-                <td className="px-5 py-3.5 text-right"><RiskBadge kyc={k} /></td>
                 <td className="px-5 py-3.5 font-mono text-xs text-sage">{new Date(k.submitted_at).toLocaleDateString()}</td>
                 <td className="px-5 py-3.5 text-right"><StatusBadge status={k.status} /></td>
                 <td className="px-5 py-3.5 text-right">
@@ -548,16 +546,6 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
   );
 }
 
-function RiskBadge({ kyc }) {
-  const { score, maxScore, band } = computeRiskScore(kyc);
-  const style = RISK_BAND_STYLES[band];
-  return (
-    <span className={`font-mono text-[10px] px-2.5 py-1 rounded-full ${style.className}`}>
-      {score}/{maxScore} {style.label}
-    </span>
-  );
-}
-
 function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail, reloadLoans }) {
   const [reviewing, setReviewing] = useState(null);
   const [signing, setSigning] = useState(null);
@@ -567,13 +555,14 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
   return (
     <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[800px]">
+        <table className="w-full text-sm min-w-[900px]">
           <thead>
             <tr className="border-b border-forest/10 text-left text-xs text-sage">
               <th className="w-1"></th>
               <th className="px-5 py-3 font-medium">Farmer</th>
               <th className="px-5 py-3 font-medium">Purpose</th>
               <th className="px-5 py-3 font-medium text-right">Amount</th>
+              <th className="px-5 py-3 font-medium text-right">Risk score</th>
               <th className="px-5 py-3 font-medium text-right">Mobile money</th>
               <th className="px-5 py-3 font-medium text-right">Status</th>
               <th className="px-5 py-3 font-medium text-right">Action</th>
@@ -582,7 +571,7 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
           <tbody>
             {loanQueue.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No loan applications yet.</td>
+                <td colSpan={8} className="px-5 py-8 text-center text-sage text-sm">No loan applications yet.</td>
               </tr>
             )}
             {loanQueue.map((l) => (
@@ -594,6 +583,7 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
                   </td>
                   <td className="px-5 py-3.5 text-ink/70">{l.purpose}</td>
                   <td className="px-5 py-3.5 text-right font-mono">{Number(l.amount_requested).toLocaleString()} XAF</td>
+                  <td className="px-5 py-3.5 text-right"><RiskBadge loan={l} /></td>
                   <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
                     {l.profiles?.mobile_money_number
                       ? `${l.profiles.mobile_money_provider} ${l.profiles.mobile_money_number} (${l.profiles.mobile_money_holder_name || "no name"})`
@@ -637,7 +627,7 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
                 {disbursingId === l.id && (
                   <tr className="border-b border-forest/5 bg-forest/[0.015]">
                     <td></td>
-                    <td colSpan={6} className="px-5 py-4">
+                    <td colSpan={7} className="px-5 py-4">
                       <div className="flex items-end gap-4 flex-wrap">
                         <label className="block flex-1 max-w-xs">
                           <span className="text-xs font-medium text-ink/70 mb-1 block">
@@ -684,6 +674,16 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
         />
       )}
     </div>
+  );
+}
+
+function RiskBadge({ loan }) {
+  const { score, maxScore, band } = computeRiskScore(loan);
+  const style = RISK_BAND_STYLES[band];
+  return (
+    <span className={`font-mono text-[10px] px-2.5 py-1 rounded-full ${style.className}`}>
+      {score}/{maxScore} {style.label}
+    </span>
   );
 }
 

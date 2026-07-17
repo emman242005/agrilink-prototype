@@ -9,6 +9,19 @@ const PURPOSES = ["Seeds", "Irrigation", "Machinery", "Fertilizer", "Other"];
 const DURATIONS = [6, 12, 18];
 const ESTIMATED_RATE = 12;
 
+const DOC_FIELDS = {
+  landDocument: { label: "Land title, customary allocation, or lease agreement", required: true },
+  farmSketch: { label: "Farm location sketch / site map", required: true },
+  farmPlan: { label: "Farm plan / project proposal", required: true },
+  farmRecord: { label: "Farm record book (past sales / harvests)", required: false },
+  coopLetter: { label: "Cooperative (GIC) recommendation letter", required: false },
+  idCard: { label: "National Identity Card (CNI)", required: true },
+  passbook: { label: "Savings passbook", required: true },
+  collateralOwnership: { label: "Proof of ownership of the pledged collateral", required: true },
+  guarantorConsent: { label: "Signed statement of guarantor's consent to act as surety", required: true },
+  guarantorId: { label: "Guarantor's national ID", required: true },
+};
+
 export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -17,8 +30,12 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
   const [form, setForm] = useState({
     farmSize: "", location: "", cropType: "", estimatedYield: "",
     amount: "", purpose: "", duration: 12,
+    cooperative: "",
+    guarantor1Name: "", guarantor1Contact: "",
+    guarantor2Name: "", guarantor2Contact: "",
+    equipmentPledge: "",
   });
-  const [files, setFiles] = useState({ landProof: null, farmPhoto: null });
+  const [files, setFiles] = useState({});
   const [coords, setCoords] = useState(null);
   const [locationStatus, setLocationStatus] = useState("idle");
 
@@ -42,28 +59,26 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
     const prefill = async () => {
       const { data } = await supabase
         .from("kyc_submissions")
-        .select("farm_size, region, crop")
+        .select("region")
         .eq("user_id", userId)
         .order("submitted_at", { ascending: false })
         .limit(1)
         .single();
-      if (data) {
-        setForm((f) => ({
-          ...f,
-          farmSize: data.farm_size || "",
-          location: data.region || "",
-          cropType: data.crop || "",
-        }));
-      }
+      if (data?.region) setForm((f) => ({ ...f, location: data.region }));
     };
     prefill();
   }, [userId]);
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+  const updateFile = (key) => (file) => setFiles({ ...files, [key]: file });
 
   const canProceed = () => {
     if (step === 1) return form.farmSize && form.location && form.cropType && locationStatus === "done";
     if (step === 2) return form.amount && form.purpose;
+    if (step === 3) return files.landDocument && files.farmSketch;
+    if (step === 4) return files.farmPlan;
+    if (step === 5) return files.idCard && files.passbook;
+    if (step === 6) return form.guarantor1Name && form.guarantor1Contact && files.collateralOwnership && files.guarantorConsent && files.guarantorId;
     return true;
   };
 
@@ -90,6 +105,12 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
           preferred_duration_months: form.duration,
           latitude: coords ? coords.lat : null,
           longitude: coords ? coords.lng : null,
+          cooperative: form.cooperative || null,
+          guarantor1_name: form.guarantor1Name || null,
+          guarantor1_contact: form.guarantor1Contact || null,
+          guarantor2_name: form.guarantor2Name || null,
+          guarantor2_contact: form.guarantor2Contact || null,
+          equipment_pledge: form.equipmentPledge || null,
         })
         .select()
         .single();
@@ -97,26 +118,31 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
       if (insertError) throw new Error(insertError.message);
 
       const urls = {};
-      for (const [key, file] of Object.entries(files)) {
+      for (const key of Object.keys(DOC_FIELDS)) {
+        const file = files[key];
         if (!file) continue;
         const ext = file.name.split(".").pop();
         const path = `${userId}/loans/${inserted.id}/${key}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("kyc-documents")
-          .upload(path, file);
-        if (uploadError) throw new Error(uploadError.message);
+        const { error: uploadError } = await supabase.storage.from("kyc-documents").upload(path, file);
+        if (uploadError) throw new Error(`${key}: ${uploadError.message}`);
         urls[key] = path;
       }
 
-      if (Object.keys(urls).length > 0) {
-        await supabase
-          .from("loan_applications")
-          .update({
-            land_proof_url: urls.landProof || null,
-            farm_photo_url: urls.farmPhoto || null,
-          })
-          .eq("id", inserted.id);
-      }
+      await supabase
+        .from("loan_applications")
+        .update({
+          land_document_url: urls.landDocument || null,
+          farm_sketch_url: urls.farmSketch || null,
+          farm_plan_url: urls.farmPlan || null,
+          farm_record_url: urls.farmRecord || null,
+          coop_letter_url: urls.coopLetter || null,
+          id_card_url: urls.idCard || null,
+          passbook_url: urls.passbook || null,
+          collateral_ownership_url: urls.collateralOwnership || null,
+          guarantor_consent_url: urls.guarantorConsent || null,
+          guarantor_id_url: urls.guarantorId || null,
+        })
+        .eq("id", inserted.id);
 
       onSuccess();
     } catch (err) {
@@ -129,13 +155,16 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
   const steps = [
     { n: 1, label: "Farm info" },
     { n: 2, label: "Loan details" },
-    { n: 3, label: "Documents" },
-    { n: 4, label: "Summary" },
+    { n: 3, label: "Land docs" },
+    { n: 4, label: "Business docs" },
+    { n: 5, label: "Financial ID" },
+    { n: 6, label: "Guarantors" },
+    { n: 7, label: "Summary" },
   ];
 
   return (
     <div className="fixed inset-0 bg-ink/50 flex items-center justify-center p-6 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-forest/10 px-6 py-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-forest">Loan application</h2>
           <button onClick={onClose} className="text-sage hover:text-forest text-xl leading-none px-2">
@@ -143,8 +172,8 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
           </button>
         </div>
 
-        <div className="px-6 pt-5 pb-2">
-          <div className="flex items-center">
+        <div className="px-6 pt-5 pb-2 overflow-x-auto">
+          <div className="flex items-center min-w-[600px]">
             {steps.map((s, i) => (
               <div key={s.n} className="flex items-center flex-1 last:flex-none">
                 <div className="flex flex-col items-center gap-1.5">
@@ -155,12 +184,12 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
                   }`}>
                     {step > s.n ? <Check size={14} /> : s.n}
                   </div>
-                  <span className={`text-[11px] font-medium ${step >= s.n ? "text-forest" : "text-sage"}`}>
+                  <span className={`text-[10px] font-medium whitespace-nowrap ${step >= s.n ? "text-forest" : "text-sage"}`}>
                     {s.label}
                   </span>
                 </div>
                 {i < steps.length - 1 && (
-                  <div className={`h-0.5 flex-1 mx-2 mb-4 transition ${step > s.n ? "bg-forest" : "bg-forest/10"}`} />
+                  <div className={`h-0.5 flex-1 mx-1.5 mb-4 transition ${step > s.n ? "bg-forest" : "bg-forest/10"}`} />
                 )}
               </div>
             ))}
@@ -174,38 +203,26 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
               <StepField icon={<MapPin size={16} />} label="Location" value={form.location} onChange={update("location")} placeholder="e.g. West Region, CM" />
               <StepField icon={<Wheat size={16} />} label="Primary crop type" value={form.cropType} onChange={update("cropType")} placeholder="e.g. Cocoa" />
               <StepField icon={<Wheat size={16} />} label="Estimated annual yield (optional)" value={form.estimatedYield} onChange={update("estimatedYield")} placeholder="e.g. 800kg" />
+              <StepField icon={<MapPin size={16} />} label="Cooperative / GIC (optional)" value={form.cooperative} onChange={update("cooperative")} />
 
               <div className="border border-forest/15 rounded-lg p-4">
                 <p className="text-sm font-medium text-ink/80 mb-1">
                   Pin your exact farm location <span className="text-red-500">*</span>
                 </p>
                 <p className="text-xs text-sage mb-3">Required. Your MFI needs this to verify the farm site.</p>
-
                 {locationStatus === "idle" && (
-                  <button
-                    type="button"
-                    onClick={captureLocation}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                  >
+                  <button type="button" onClick={captureLocation} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
                     Capture my current location
                   </button>
                 )}
                 {locationStatus === "loading" && <p className="text-xs text-sage">Getting your location, this can take a few seconds...</p>}
                 {locationStatus === "done" && coords && (
-                  <p className="text-xs text-forest">
-                    Location captured ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})
-                  </p>
+                  <p className="text-xs text-forest">Location captured ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})</p>
                 )}
                 {locationStatus === "denied" && (
                   <div>
-                    <p className="text-xs text-red-600 mb-2">
-                      Couldn't get your location. Make sure location access is allowed for this site in your phone's browser settings, then try again.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={captureLocation}
-                      className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                    >
+                    <p className="text-xs text-red-600 mb-2">Couldn't get your location. Check your browser's location permission and try again.</p>
+                    <button type="button" onClick={captureLocation} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
                       Try again
                     </button>
                   </div>
@@ -217,43 +234,25 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
           {step === 2 && (
             <div className="space-y-5">
               <StepField icon={<Wallet size={16} />} label="Requested amount (XAF)" type="number" value={form.amount} onChange={update("amount")} placeholder="e.g. 450000" />
-
               <div>
                 <p className="text-sm font-medium text-ink/80 mb-2">Loan purpose</p>
                 <div className="grid grid-cols-3 gap-2">
                   {PURPOSES.map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setForm({ ...form, purpose: p })}
-                      className={`text-sm font-medium py-2.5 rounded-lg border transition ${
-                        form.purpose === p
-                          ? "bg-forest text-paper border-forest"
-                          : "border-forest/20 text-forest/70 hover:bg-forest/5"
-                      }`}
-                    >
+                    <button key={p} type="button" onClick={() => setForm({ ...form, purpose: p })}
+                      className={`text-sm font-medium py-2.5 rounded-lg border transition ${form.purpose === p ? "bg-forest text-paper border-forest" : "border-forest/20 text-forest/70 hover:bg-forest/5"}`}>
                       {p}
                     </button>
                   ))}
                 </div>
               </div>
-
               <div>
                 <p className="text-sm font-medium text-ink/80 mb-2 flex items-center gap-1.5">
                   <Calendar size={15} /> Preferred repayment duration
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {DURATIONS.map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setForm({ ...form, duration: d })}
-                      className={`text-sm font-medium py-2.5 rounded-lg border transition ${
-                        form.duration === d
-                          ? "bg-forest text-paper border-forest"
-                          : "border-forest/20 text-forest/70 hover:bg-forest/5"
-                      }`}
-                    >
+                    <button key={d} type="button" onClick={() => setForm({ ...form, duration: d })}
+                      className={`text-sm font-medium py-2.5 rounded-lg border transition ${form.duration === d ? "bg-forest text-paper border-forest" : "border-forest/20 text-forest/70 hover:bg-forest/5"}`}>
                       {d} months
                     </button>
                   ))}
@@ -264,70 +263,87 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
 
           {step === 3 && (
             <div className="space-y-4">
-              <Dropzone
-                icon={<FileText size={22} />}
-                label="Proof of land ownership"
-                file={files.landProof}
-                onChange={(f) => setFiles({ ...files, landProof: f })}
-              />
-              <Dropzone
-                icon={<FileImage size={22} />}
-                label="Farm photos"
-                file={files.farmPhoto}
-                onChange={(f) => setFiles({ ...files, farmPhoto: f })}
-              />
-              <p className="text-xs text-sage">Both are optional here but speed up MFI review.</p>
+              <p className="text-xs text-sage mb-1">Land & Farm Ownership Documents</p>
+              <Dropzone field={DOC_FIELDS.landDocument} icon={<FileText size={22} />} file={files.landDocument} onChange={updateFile("landDocument")} />
+              <Dropzone field={DOC_FIELDS.farmSketch} icon={<FileImage size={22} />} file={files.farmSketch} onChange={updateFile("farmSketch")} />
             </div>
           )}
 
           {step === 4 && (
             <div className="space-y-4">
+              <p className="text-xs text-sage mb-1">Business & Production Documents</p>
+              <Dropzone field={DOC_FIELDS.farmPlan} icon={<FileText size={22} />} file={files.farmPlan} onChange={updateFile("farmPlan")} />
+              <Dropzone field={DOC_FIELDS.farmRecord} icon={<FileText size={22} />} file={files.farmRecord} onChange={updateFile("farmRecord")} />
+              <Dropzone field={DOC_FIELDS.coopLetter} icon={<FileText size={22} />} file={files.coopLetter} onChange={updateFile("coopLetter")} />
+            </div>
+          )}
+
+          {step === 5 && (
+            <div className="space-y-4">
+              <p className="text-xs text-sage mb-1">Proof of Financial Identity</p>
+              <Dropzone field={DOC_FIELDS.idCard} icon={<FileText size={22} />} file={files.idCard} onChange={updateFile("idCard")} />
+              <Dropzone field={DOC_FIELDS.passbook} icon={<FileText size={22} />} file={files.passbook} onChange={updateFile("passbook")} />
+            </div>
+          )}
+
+          {step === 6 && (
+            <div className="space-y-5">
+              <p className="text-xs text-sage mb-1">Guarantees & Collateral</p>
+              <StepField label="Guarantor's full name" value={form.guarantor1Name} onChange={update("guarantor1Name")} />
+              <StepField label="Guarantor's contact" value={form.guarantor1Contact} onChange={update("guarantor1Contact")} />
+              <StepField label="Second guarantor's name (optional)" value={form.guarantor2Name} onChange={update("guarantor2Name")} />
+              <StepField label="Second guarantor's contact (optional)" value={form.guarantor2Contact} onChange={update("guarantor2Contact")} />
+              <label className="block">
+                <span className="text-sm font-medium text-ink/80 mb-1.5 block">Collateral being pledged (list of items)</span>
+                <textarea
+                  value={form.equipmentPledge}
+                  onChange={update("equipmentPledge")}
+                  rows={2}
+                  placeholder="e.g. 1 tiller, 4 goats"
+                  className="w-full border border-forest/20 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-mint/50 focus:border-forest"
+                />
+              </label>
+              <Dropzone field={DOC_FIELDS.collateralOwnership} icon={<FileText size={22} />} file={files.collateralOwnership} onChange={updateFile("collateralOwnership")} />
+              <Dropzone field={DOC_FIELDS.guarantorConsent} icon={<FileText size={22} />} file={files.guarantorConsent} onChange={updateFile("guarantorConsent")} />
+              <Dropzone field={DOC_FIELDS.guarantorId} icon={<FileText size={22} />} file={files.guarantorId} onChange={updateFile("guarantorId")} />
+            </div>
+          )}
+
+          {step === 7 && (
+            <div className="space-y-4">
               <div className="bg-forest/5 rounded-xl p-4 space-y-2 text-sm">
                 <SummaryRow label="Farm" value={`${form.farmSize} ha, ${form.cropType}, ${form.location}`} />
                 <SummaryRow label="Amount requested" value={`${Number(form.amount || 0).toLocaleString()} XAF`} />
                 <SummaryRow label="Purpose" value={form.purpose || "not set"} />
-                <SummaryRow label="Preferred duration" value={`${form.duration} months`} />
-                <SummaryRow label="GPS location" value={coords ? "Captured" : "Not captured"} />
+                <SummaryRow label="Duration" value={`${form.duration} months`} />
+                <SummaryRow label="Guarantor" value={form.guarantor1Name || "not set"} />
+                <SummaryRow label="Documents attached" value={`${Object.keys(files).length} of ${Object.keys(DOC_FIELDS).length}`} />
               </div>
-
               <div className="bg-mint/10 border border-mint/30 rounded-xl p-4">
                 <p className="text-xs text-sage mb-1">Estimated monthly repayment</p>
                 <p className="font-display text-2xl font-semibold text-forest">
                   {monthlyEstimate().toLocaleString()} XAF<span className="text-sm font-normal text-sage">/mo</span>
                 </p>
-                <p className="text-[11px] text-sage mt-1">
-                  Based on a placeholder {ESTIMATED_RATE}% rate. Your MFI sets the final rate and term at approval.
-                </p>
+                <p className="text-[11px] text-sage mt-1">Placeholder {ESTIMATED_RATE}% rate. Your MFI sets the final terms at approval.</p>
               </div>
-
               {error && <p className="text-sm text-red-600">{error}</p>}
             </div>
           )}
         </div>
 
         <div className="sticky bottom-0 bg-white border-t border-forest/10 px-6 py-4 flex justify-between">
-          <button
-            onClick={() => setStep((s) => Math.max(1, s - 1))}
-            disabled={step === 1}
-            className="flex items-center gap-1 text-sm font-medium px-4 py-2.5 rounded-lg border border-forest/20 text-forest/70 hover:bg-forest/5 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
+          <button onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}
+            className="flex items-center gap-1 text-sm font-medium px-4 py-2.5 rounded-lg border border-forest/20 text-forest/70 hover:bg-forest/5 disabled:opacity-40">
             <ChevronLeft size={16} /> Back
           </button>
-
-          {step < 4 ? (
-            <button
-              onClick={() => setStep((s) => s + 1)}
-              disabled={!canProceed()}
-              className="flex items-center gap-1 text-sm font-medium px-5 py-2.5 rounded-lg bg-forest text-paper hover:bg-forestdark transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
+          {step < 7 ? (
+            <button onClick={() => setStep((s) => s + 1)} disabled={!canProceed()}
+              className="flex items-center gap-1 text-sm font-medium px-5 py-2.5 rounded-lg bg-forest text-paper hover:bg-forestdark transition disabled:opacity-40">
               Next <ChevronRight size={16} />
             </button>
           ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="flex items-center gap-1 text-sm font-medium px-5 py-2.5 rounded-lg bg-forest text-paper hover:bg-forestdark transition disabled:opacity-60"
-            >
+            <button onClick={handleSubmit} disabled={loading}
+              className="flex items-center gap-1 text-sm font-medium px-5 py-2.5 rounded-lg bg-forest text-paper hover:bg-forestdark transition disabled:opacity-60">
               {loading ? "Submitting..." : "Submit to MFI"}
             </button>
           )}
@@ -343,49 +359,35 @@ function StepField({ icon, label, value, onChange, type = "text", placeholder })
       <span className="text-sm font-medium text-ink/80 mb-1.5 flex items-center gap-1.5">
         {icon} {label}
       </span>
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className="w-full border border-forest/20 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-mint/50 focus:border-forest"
-      />
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+        className="w-full border border-forest/20 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-mint/50 focus:border-forest" />
     </label>
   );
 }
 
-function Dropzone({ icon, label, file, onChange }) {
+function Dropzone({ field, icon, file, onChange }) {
   const [dragging, setDragging] = useState(false);
-
   return (
     <label
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragging(false);
-        const f = e.dataTransfer.files[0];
-        if (f) onChange(f);
-      }}
-      className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-8 cursor-pointer transition ${
+      onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) onChange(f); }}
+      className={`flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-xl py-6 cursor-pointer transition ${
         dragging ? "border-forest bg-mint/10" : file ? "border-forest/40 bg-forest/5" : "border-forest/20 hover:bg-forest/5"
       }`}
     >
-      <input
-        type="file"
-        accept="image/*,.pdf"
-        className="hidden"
-        onChange={(e) => e.target.files[0] && onChange(e.target.files[0])}
-      />
+      <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => e.target.files[0] && onChange(e.target.files[0])} />
       {file ? (
         <>
-          <Check size={20} className="text-forest" />
+          <Check size={18} className="text-forest" />
           <span className="text-sm text-forest font-medium">{file.name}</span>
         </>
       ) : (
         <>
           <span className="text-sage">{icon}</span>
-          <span className="text-sm text-ink/70 font-medium">{label}</span>
+          <span className="text-sm text-ink/70 font-medium text-center px-4">
+            {field.label} {field.required && <span className="text-red-500">*</span>}
+          </span>
           <span className="text-xs text-sage flex items-center gap-1"><Upload size={12} /> Drop file or click to browse</span>
         </>
       )}
