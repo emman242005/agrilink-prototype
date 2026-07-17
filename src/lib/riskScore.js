@@ -4,15 +4,14 @@ export function computeRiskScore(loan) {
   const hasGuarantorPackage = loan.guarantor_consent_url && loan.guarantor_id_url;
 
   const items = [
-    { label: "National ID on file", max: 15, earned: loan.id_card_url ? 15 : 0 },
     { label: "Proof of savings (passbook)", max: 15, earned: loan.passbook_url ? 15 : 0 },
-    { label: "Land ownership document", max: 15, earned: loan.land_document_url ? 15 : 0 },
-    { label: "Farm plan / project proposal", max: 10, earned: loan.farm_plan_url ? 10 : 0 },
+    { label: "Land ownership document", max: 20, earned: loan.land_document_url ? 20 : 0 },
+    { label: "Farm plan / project proposal", max: 15, earned: loan.farm_plan_url ? 15 : 0 },
     { label: "Farm record book", max: 5, earned: loan.farm_record_url ? 5 : 0 },
     { label: "Farm location sketch", max: 5, earned: loan.farm_sketch_url ? 5 : 0 },
     { label: "Cooperative / GIC membership", max: 5, earned: loan.cooperative ? 5 : 0 },
     { label: "Cooperative recommendation letter", max: 5, earned: loan.coop_letter_url ? 5 : 0 },
-    { label: "Guarantor consent and ID on file", max: 15, earned: hasGuarantorPackage ? 15 : loan.guarantor1_name ? 7 : 0 },
+    { label: "Guarantor consent and ID on file", max: 20, earned: hasGuarantorPackage ? 20 : loan.guarantor1_name ? 10 : 0 },
     { label: "Collateral ownership document", max: 10, earned: loan.collateral_ownership_url ? 10 : 0 },
   ];
 

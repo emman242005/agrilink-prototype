@@ -15,7 +15,6 @@ const DOC_FIELDS = {
   farmPlan: { label: "Farm plan / project proposal", required: true },
   farmRecord: { label: "Farm record book (past sales / harvests)", required: false },
   coopLetter: { label: "Cooperative (GIC) recommendation letter", required: false },
-  idCard: { label: "National Identity Card (CNI)", required: true },
   passbook: { label: "Savings passbook", required: true },
   collateralOwnership: { label: "Proof of ownership of the pledged collateral", required: true },
   guarantorConsent: { label: "Signed statement of guarantor's consent to act as surety", required: true },
@@ -77,7 +76,7 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
     if (step === 2) return form.amount && form.purpose;
     if (step === 3) return files.landDocument && files.farmSketch;
     if (step === 4) return files.farmPlan;
-    if (step === 5) return files.idCard && files.passbook;
+    if (step === 5) return files.passbook;
     if (step === 6) return form.guarantor1Name && form.guarantor1Contact && files.collateralOwnership && files.guarantorConsent && files.guarantorId;
     return true;
   };
@@ -136,7 +135,7 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
           farm_plan_url: urls.farmPlan || null,
           farm_record_url: urls.farmRecord || null,
           coop_letter_url: urls.coopLetter || null,
-          id_card_url: urls.idCard || null,
+          
           passbook_url: urls.passbook || null,
           collateral_ownership_url: urls.collateralOwnership || null,
           guarantor_consent_url: urls.guarantorConsent || null,
@@ -279,13 +278,12 @@ export default function LoanApplicationWizard({ userId, onClose, onSuccess }) {
           )}
 
           {step === 5 && (
-            <div className="space-y-4">
-              <p className="text-xs text-sage mb-1">Proof of Financial Identity</p>
-              <Dropzone field={DOC_FIELDS.idCard} icon={<FileText size={22} />} file={files.idCard} onChange={updateFile("idCard")} />
-              <Dropzone field={DOC_FIELDS.passbook} icon={<FileText size={22} />} file={files.passbook} onChange={updateFile("passbook")} />
-            </div>
-          )}
-
+  <div className="space-y-4">
+    <p className="text-xs text-sage mb-1">Proof of Financial Identity</p>
+    <p className="text-xs text-sage -mt-2 mb-2">Your National ID is already on file from identity verification.</p>
+    <Dropzone field={DOC_FIELDS.passbook} icon={<FileText size={22} />} file={files.passbook} onChange={updateFile("passbook")} />
+  </div>
+)}
           {step === 6 && (
             <div className="space-y-5">
               <p className="text-xs text-sage mb-1">Guarantees & Collateral</p>

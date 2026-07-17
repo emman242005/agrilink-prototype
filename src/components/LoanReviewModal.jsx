@@ -8,7 +8,6 @@ const DOC_DISPLAY = [
   { key: "farm_plan_url", label: "Farm plan" },
   { key: "farm_record_url", label: "Farm record" },
   { key: "coop_letter_url", label: "Coop letter" },
-  { key: "id_card_url", label: "ID card" },
   { key: "passbook_url", label: "Passbook" },
   { key: "collateral_ownership_url", label: "Collateral ownership" },
   { key: "guarantor_consent_url", label: "Guarantor consent" },
