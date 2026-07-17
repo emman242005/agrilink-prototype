@@ -1,15 +1,16 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import orangeLogo from "../assets/images/logo.png";
 import mtnLogo from "../assets/images/logo2.png";
+import { sendEmail } from "../lib/sendEmail";
 
 const PROVIDERS = [
   { key: "Orange", logo: orangeLogo },
   { key: "MTN", logo: mtnLogo },
 ];
 
-export default function PaymentSettingsModal({ userId, currentProvider, currentNumber, currentHolderName, onClose, onSaved }) {
+export default function PaymentSettingsModal({ userId, userEmail, userName, currentProvider, currentNumber, currentHolderName, onClose, onSaved }) {
   const [provider, setProvider] = useState(currentProvider || "MTN");
   const [number, setNumber] = useState(currentNumber || "");
   const [holderName, setHolderName] = useState(currentHolderName || "");
@@ -98,10 +99,11 @@ export default function PaymentSettingsModal({ userId, currentProvider, currentN
             disabled={saving}
             className="w-full bg-forest text-paper font-medium py-2.5 rounded-lg hover:bg-forestdark transition disabled:opacity-60"
           >
-            {saving ? "Saving…" : "Save payment details"}
+            {saving ? "Saving..." : "Save payment details"}
           </button>
         </div>
       </div>
     </div>
   );
 }
+

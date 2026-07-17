@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Sprout, Droplets, Wallet, ShieldCheck, MapPin, Plus,
   CheckCircle2, Circle, Clock3, Wheat, Smartphone, FileSignature,
@@ -151,7 +151,7 @@ export default function FarmerDashboard() {
         {showCropNote && (
           <div className="mb-6 bg-mint/10 border border-mint/30 rounded-xl px-4 py-3 flex items-center justify-between">
             <p className="text-sm text-forest">Crop tracking is coming soon, this will let you log plots and monitor yield here.</p>
-            <button onClick={() => setShowCropNote(false)} className="text-sage hover:text-forest text-lg leading-none px-2">×</button>
+            <button onClick={() => setShowCropNote(false)} className="text-sage hover:text-forest text-lg leading-none px-2">Ã—</button>
           </div>
         )}
 
