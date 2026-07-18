@@ -21,6 +21,7 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
   const [identity, setIdentity] = useState(null);
   const [rate, setRate] = useState("12");
   const [term, setTerm] = useState(String(loan.preferred_duration_months || 6));
+  const [otherLoans, setOtherLoans] = useState([]);
 
   useEffect(() => {
     const load = async () => {
@@ -43,6 +44,14 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
         .limit(1)
         .single();
       setIdentity(kyc);
+
+      const { data: others } = await supabase
+        .from("loan_applications")
+        .select("id, amount_requested, status, mfis(name)")
+        .eq("user_id", loan.user_id)
+        .neq("id", loan.id)
+        .in("status", ["pending", "approved", "disbursed"]);
+      setOtherLoans(others || []);
     };
     load();
   }, [loan]);
@@ -92,6 +101,21 @@ export default function LoanReviewModal({ loan, onClose, onApprove, onDecline })
             <InfoRow label="Guarantor" value={loan.guarantor1_name ? `${loan.guarantor1_name} (${loan.guarantor1_contact})` : "—"} />
             <InfoRow label="Collateral pledged" value={loan.equipment_pledge || "—"} />
           </div>
+
+          {otherLoans.length > 0 && (
+            <div className="bg-gold/10 border border-gold/30 rounded-xl p-4 mb-6">
+              <p className="text-xs font-semibold text-gold mb-2">
+                This farmer has {otherLoans.length} other active loan{otherLoans.length > 1 ? "s" : ""}
+              </p>
+              <div className="space-y-1">
+                {otherLoans.map((o) => (
+                  <p key={o.id} className="text-xs text-ink/70">
+                    {Number(o.amount_requested).toLocaleString()} XAF, {o.status} at {o.mfis?.name || "another MFI"}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="bg-forest/5 rounded-xl p-4 mb-6">
             <div className="flex items-center justify-between mb-3">
