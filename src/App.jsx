@@ -1,3 +1,6 @@
+import MfiSignUp from "./pages/MfiSignUp";
+import MfiLogin from "./pages/MfiLogin";
+import MfiPending from "./pages/MfiPending";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Landing from "./pages/Landing";
 import SignUp from "./pages/SignUp";
@@ -19,6 +22,9 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/mfi/signup" element={<MfiSignUp />} />
+      <Route path="/mfi/login" element={<MfiLogin />} />
+      <Route path="/mfi/pending" element={<MfiPending />} />
 
       <Route
         path="/kyc"

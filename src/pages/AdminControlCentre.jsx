@@ -17,6 +17,7 @@ export default function AdminControlCentre() {
   const [kycQueue, setKycQueue] = useState([]);
   const [loanQueue, setLoanQueue] = useState([]);
   const [repayments, setRepayments] = useState([]);
+  const [mfiQueue, setMfiQueue] = useState([]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const loadKyc = async () => {
@@ -46,10 +47,20 @@ export default function AdminControlCentre() {
     setRepayments(data || []);
   };
 
+  const loadMfis = async () => {
+    const { data, error } = await supabase
+      .from("mfis")
+      .select("*")
+      .order("submitted_at", { ascending: false });
+    if (error) console.error("loadMfis error:", error);
+    setMfiQueue(data || []);
+  };
+
   useEffect(() => {
     loadKyc();
     loadLoans();
     loadRepayments();
+    loadMfis();
   }, []);
 
   const sendEmail = async (to, subject, message, name) => {
@@ -179,6 +190,7 @@ export default function AdminControlCentre() {
       type: "success",
     });
 
+    const disbursementDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
     const scheduleText = schedule
       .map((s) => `Installment ${s.installment_number}: ${s.amount_due.toLocaleString()} XAF, due ${s.due_date}`)
       .join("\n");
@@ -186,7 +198,10 @@ export default function AdminControlCentre() {
     await sendEmail(
       loan.profiles?.email,
       "Your AgriLink loan has been disbursed",
-      `${Number(loan.amount_requested).toLocaleString()} XAF was sent to your ${loan.profiles?.mobile_money_provider || "mobile money"} number ${loan.profiles?.mobile_money_number || ""}. Reference: ${reference}.
+      `${Number(loan.amount_requested).toLocaleString()} XAF was sent to your ${loan.profiles?.mobile_money_provider || "mobile money"} number ${loan.profiles?.mobile_money_number || ""}.
+
+Disbursement date: ${disbursementDate}
+Reference: ${reference}
 
 REPAYMENT SCHEDULE
 
@@ -218,8 +233,26 @@ Log in to AgriLink to track your repayments.`,
     loadRepayments();
   };
 
+  const decideMfi = async (mfi, decision) => {
+    await supabase
+      .from("mfis")
+      .update({ status: decision, reviewed_at: new Date().toISOString(), reviewed_by: session.user.id })
+      .eq("id", mfi.id);
+
+    await sendEmail(
+      mfi.contact_email,
+      decision === "approved" ? "Your AgriLink MFI registration was approved" : "Update on your AgriLink MFI registration",
+      decision === "approved"
+        ? `Good news, ${mfi.name} has been approved as an AgriLink lending partner. Log in to access your dashboard.`
+        : `Your registration for ${mfi.name} was not approved at this time. Please contact AgriLink for more details.`
+    );
+
+    loadMfis();
+  };
+
   const pendingKyc = kycQueue.filter((k) => k.status === "pending").length;
   const pendingLoans = loanQueue.filter((l) => l.status === "pending").length;
+  const pendingMfis = mfiQueue.filter((m) => m.status === "pending").length;
   const awaitingDisbursement = loanQueue.filter((l) => l.status === "approved" && l.officer_signature).length;
   const totalDisbursed = loanQueue.filter((l) => l.status === "disbursed").reduce((sum, l) => sum + Number(l.amount_requested), 0);
   const uniqueFarmers = new Set(kycQueue.map((k) => k.user_id)).size;
@@ -233,14 +266,14 @@ Log in to AgriLink to track your repayments.`,
   return (
     <div className="min-h-screen bg-paper flex">
       <div className="hidden md:block">
-        <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} />
+        <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} pendingMfis={pendingMfis} dueOrOverdue={dueOrOverdue} />
       </div>
 
       {mobileNavOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/50" onClick={() => setMobileNavOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0">
-            <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} />
+            <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} pendingMfis={pendingMfis} dueOrOverdue={dueOrOverdue} />
           </div>
         </div>
       )}
@@ -266,6 +299,7 @@ Log in to AgriLink to track your repayments.`,
               setTab={goTab}
             />
           )}
+          {tab === "mfis" && <MfiTable mfiQueue={mfiQueue} onApprove={decideMfi} onDeny={decideMfi} />}
           {tab === "kyc" && <KycTable kycQueue={kycQueue} onApprove={decideKyc} onDeny={decideKyc} />}
           {tab === "loans" && (
             <LoansTable
@@ -284,9 +318,10 @@ Log in to AgriLink to track your repayments.`,
   );
 }
 
-function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
+function Sidebar({ tab, setTab, pendingKyc, pendingLoans, pendingMfis, dueOrOverdue }) {
   const items = [
     { key: "overview", label: "Overview", badge: 0 },
+    { key: "mfis", label: "MFI Applications", badge: pendingMfis },
     { key: "kyc", label: "KYC Review", badge: pendingKyc },
     { key: "loans", label: "Loan Approvals", badge: pendingLoans },
     { key: "repayments", label: "Repayments", badge: dueOrOverdue },
@@ -296,7 +331,7 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
     <aside className="w-60 h-full bg-forestdark flex-shrink-0 flex flex-col">
       <div className="px-6 py-6 border-b border-paper/10">
         <span className="font-display text-xl font-semibold text-paper">AgriLink</span>
-        <p className="font-mono text-[10px] text-gold tracking-widest mt-1">CONTROL CENTRE</p>
+        <p className="font-mono text-[10px] text-gold tracking-widest mt-1">SUPER ADMIN</p>
       </div>
       <nav className="flex-1 px-3 py-5 space-y-1">
         {items.map((item) => (
@@ -315,14 +350,14 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, dueOrOverdue }) {
         ))}
       </nav>
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v1.5 prototype</p>
+        <p className="font-mono text-[10px] text-paper/30">v1.6 prototype</p>
       </div>
     </aside>
   );
 }
 
 function TopBar({ email, onSignOut, tab, onMenuClick }) {
-  const titles = { overview: "Overview", kyc: "KYC Review", loans: "Loan Approvals", repayments: "Repayments" };
+  const titles = { overview: "Overview", mfis: "MFI Applications", kyc: "KYC Review", loans: "Loan Approvals", repayments: "Repayments" };
   return (
     <header className="border-b border-forest/10 bg-white px-4 md:px-8 py-4 flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -338,6 +373,65 @@ function TopBar({ email, onSignOut, tab, onMenuClick }) {
         </button>
       </div>
     </header>
+  );
+}
+
+function MfiTable({ mfiQueue, onApprove, onDeny }) {
+  return (
+    <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
+          <thead>
+            <tr className="border-b border-forest/10 text-left text-xs text-sage">
+              <th className="w-1"></th>
+              <th className="px-5 py-3 font-medium">Institution</th>
+              <th className="px-5 py-3 font-medium">Region</th>
+              <th className="px-5 py-3 font-medium">Contact</th>
+              <th className="px-5 py-3 font-medium">Submitted</th>
+              <th className="px-5 py-3 font-medium text-right">Status</th>
+              <th className="px-5 py-3 font-medium text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {mfiQueue.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No MFI registrations yet.</td>
+              </tr>
+            )}
+            {mfiQueue.map((m) => (
+              <tr key={m.id} className="border-b border-forest/5 hover:bg-forest/[0.02]">
+                <td className={`w-1 ${railColor(m.status)}`}></td>
+                <td className="px-5 py-3.5">
+                  <p className="font-medium text-ink">{m.name}</p>
+                  {m.description && <p className="text-xs text-sage max-w-xs truncate">{m.description}</p>}
+                </td>
+                <td className="px-5 py-3.5 text-ink/70">{m.region}</td>
+                <td className="px-5 py-3.5 text-ink/70">
+                  <p className="font-mono text-xs">{m.contact_email}</p>
+                  <p className="text-xs text-sage">{m.contact_phone}</p>
+                </td>
+                <td className="px-5 py-3.5 font-mono text-xs text-sage">{new Date(m.submitted_at).toLocaleDateString()}</td>
+                <td className="px-5 py-3.5 text-right"><StatusBadge status={m.status} /></td>
+                <td className="px-5 py-3.5 text-right">
+                  {m.status === "pending" ? (
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => onApprove(m, "approved")} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
+                        Approve
+                      </button>
+                      <button onClick={() => onDeny(m, "denied")} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest/70 hover:bg-forest/5">
+                        Deny
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-sage">Reviewed</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
