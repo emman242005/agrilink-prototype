@@ -34,7 +34,7 @@ export default function ForgotPassword() {
           If an account exists for {email}, a link to reset your password has been sent. It expires in 1 hour.
         </p>
         <Link
-          to="/login"
+          to="/login/farmer"
           className="block w-full text-center bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition"
         >
           Back to login
@@ -57,7 +57,7 @@ export default function ForgotPassword() {
         </button>
       </form>
       <p className="text-center text-sm text-sage mt-6">
-        <Link to="/login" className="text-forest font-medium underline underline-offset-4">
+        <Link to="/login/farmer" className="text-forest font-medium underline underline-offset-4">
           Back to login
         </Link>
       </p>

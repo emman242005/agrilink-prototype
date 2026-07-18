@@ -1,10 +1,10 @@
-import pic4Image from "../assets/images/pic4.png";
 import { Link } from "react-router-dom";
 import {
   CheckCircle2, ShieldCheck, Smartphone, FileSignature,
   MapPin, BarChart2, Lock, Users, Landmark, Wallet,
 } from "lucide-react";
 import bgImage from "../assets/images/pic1.png";
+import pic4Image from "../assets/images/pic4.png";
 
 export default function Landing() {
   return (
@@ -19,7 +19,10 @@ export default function Landing() {
       >
         <header className="px-6 py-6 flex items-center justify-between max-w-6xl mx-auto w-full">
           <span className="font-display text-2xl font-semibold text-paper">AgriLink</span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <Link to="/mfi/signup" className="text-sm font-medium px-4 py-2 rounded-full border border-gold/50 text-gold hover:bg-gold/10 transition">
+              Register as an MFI
+            </Link>
             <Link to="/login" className="text-sm font-medium px-4 py-2 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition">
               Log in
             </Link>
@@ -41,6 +44,9 @@ export default function Landing() {
             <div className="flex gap-3 flex-wrap">
               <Link to="/signup" className="text-sm font-semibold px-6 py-3 rounded-full bg-mint text-forestdark hover:brightness-95 transition">
                 Apply for a loan
+              </Link>
+              <Link to="/mfi/signup" className="text-sm font-semibold px-6 py-3 rounded-full bg-gold text-forestdark hover:brightness-95 transition">
+                Register as an MFI
               </Link>
               <Link to="/login" className="text-sm font-medium px-6 py-3 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition">
                 I already have an account
@@ -74,13 +80,13 @@ export default function Landing() {
       </div>
 
       <div
-  className="border-y border-forest/10"
-  style={{
-    backgroundImage: `linear-gradient(rgba(250, 249, 246, 0.45), rgba(250, 249, 246, 0.45)), url(${pic4Image})`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-  }}
->
+        className="border-y border-forest/10"
+        style={{
+          backgroundImage: `linear-gradient(rgba(250, 249, 246, 0.93), rgba(250, 249, 246, 0.93)), url(${pic4Image})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
         <div className="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 md:grid-cols-2 gap-10">
           <div>
             <div className="w-11 h-11 rounded-full bg-forest/10 text-forest flex items-center justify-center mb-4">
@@ -110,14 +116,14 @@ export default function Landing() {
               Reach more farmers, with less risk
             </h3>
             <ul className="space-y-3">
+              <ListItem>Register your institution and get access once approved</ListItem>
               <ListItem>Document-backed KYC with an inline review workspace</ListItem>
               <ListItem>Alternative credit scoring built from land, guarantors, and cooperative data</ListItem>
-              <ListItem>Set your own rates and terms at approval</ListItem>
-              <ListItem>Track every disbursement and repayment with a mobile money reference</ListItem>
+              <ListItem>Set your own rates and terms, disbursement and repayment tracked automatically</ListItem>
             </ul>
-            <a href="mailto:hello@agrilink.app" className="inline-block mt-6 text-sm font-semibold px-6 py-3 rounded-full border border-forest text-forest hover:bg-forest/5 transition">
-              Talk to us about a pilot
-            </a>
+            <Link to="/mfi/signup" className="inline-block mt-6 text-sm font-semibold px-6 py-3 rounded-full border border-forest text-forest hover:bg-forest/5 transition">
+              Register as an MFI
+            </Link>
           </div>
         </div>
       </div>
@@ -130,7 +136,7 @@ export default function Landing() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <SecurityCard icon={<BarChart2 size={20} />} title="Alternative credit scoring" body="Ten weighted factors, land ownership, guarantors, cooperative membership, and more, give lenders a real risk signal without formal credit history." />
           <SecurityCard icon={<FileSignature size={20} />} title="Dual e-signature" body="Every loan is signed by the farmer first, then countersigned by a loan officer before funds are ever released." />
-          <SecurityCard icon={<Lock size={20} />} title="Role-based access" body="Farmers only see their own data. Officers see only what they're authorized to review. Every decision is timestamped." />
+          <SecurityCard icon={<Lock size={20} />} title="Role-based access" body="Farmers, MFI officers, and AgriLink each see only what they're authorized to. Every decision is timestamped." />
         </div>
       </div>
 
@@ -139,10 +145,13 @@ export default function Landing() {
           <h2 className="font-display text-2xl md:text-3xl font-semibold text-paper mb-4">
             Ready to get started?
           </h2>
-          <p className="text-mint mb-8">Create your account and begin your loan application today.</p>
+          <p className="text-mint mb-8">Create your account, whether you're a farmer or a lending institution.</p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link to="/signup" className="text-sm font-semibold px-6 py-3 rounded-full bg-mint text-forestdark hover:brightness-95 transition">
-              Create an account
+              Sign up as a farmer
+            </Link>
+            <Link to="/mfi/signup" className="text-sm font-semibold px-6 py-3 rounded-full bg-gold text-forestdark hover:brightness-95 transition">
+              Register as an MFI
             </Link>
             <Link to="/login" className="text-sm font-medium px-6 py-3 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition">
               Log in

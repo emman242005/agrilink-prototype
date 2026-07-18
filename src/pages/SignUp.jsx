@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { sendEmail } from "../lib/sendEmail";
 import bgImage from "../assets/images/pic1.png";
 
 export default function SignUp() {
@@ -36,6 +37,13 @@ export default function SignUp() {
       return;
     }
 
+    await sendEmail(
+      form.email,
+      form.name,
+      "Welcome to AgriLink",
+      "Your account has been created. Next, verify your identity so you can start applying for loans through your MFI."
+    );
+
     navigate("/kyc");
   };
 
@@ -52,7 +60,7 @@ export default function SignUp() {
             Click the link in that email to activate your account, then come back here and log in.
           </p>
           <Link
-            to="/login"
+            to="/login/farmer"
             className="block w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition text-center"
           >
             Go to login
@@ -79,9 +87,12 @@ export default function SignUp() {
       </form>
       <p className="text-center text-sm text-sage mt-6">
         Already have an account?{" "}
-        <Link to="/login" className="text-forest font-medium underline underline-offset-4">
+        <Link to="/login/farmer" className="text-forest font-medium underline underline-offset-4">
           Log in
         </Link>
+      </p>
+      <p className="text-center text-xs text-sage mt-3">
+        <Link to="/signup" className="underline underline-offset-4">Not a farmer? Switch portal</Link>
       </p>
     </AuthShell>
   );

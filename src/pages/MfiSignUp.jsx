@@ -114,6 +114,9 @@ export default function MfiSignUp() {
           Log in
         </Link>
       </p>
+      <p className="text-center text-xs text-sage mt-3">
+        <Link to="/signup" className="underline underline-offset-4">Not an MFI? Switch portal</Link>
+      </p>
     </AuthShell>
   );
 }

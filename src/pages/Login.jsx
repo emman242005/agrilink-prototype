@@ -58,9 +58,9 @@ export default function Login() {
         <Field label="Email" type="email" value={form.email} onChange={update("email")} required />
         <Field label="Password" type="password" value={form.password} onChange={update("password")} required />
         <p className="text-right -mt-2">
-         <Link to="/forgot-password" className="text-xs text-sage hover:text-forest underline underline-offset-4">
-           Forgot password?
-         </Link>
+          <Link to="/forgot-password" className="text-xs text-sage hover:text-forest underline underline-offset-4">
+            Forgot password?
+          </Link>
         </p>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
@@ -73,9 +73,12 @@ export default function Login() {
       </form>
       <p className="text-center text-sm text-sage mt-6">
         New here?{" "}
-        <Link to="/signup" className="text-forest font-medium underline underline-offset-4">
+        <Link to="/signup/farmer" className="text-forest font-medium underline underline-offset-4">
           Create an account
         </Link>
+      </p>
+      <p className="text-center text-xs text-sage mt-3">
+        <Link to="/login" className="underline underline-offset-4">Not a farmer? Switch portal</Link>
       </p>
 
       {pendingUser && (

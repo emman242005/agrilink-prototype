@@ -75,6 +75,9 @@ export default function MfiLogin() {
           Register here
         </Link>
       </p>
+      <p className="text-center text-xs text-sage mt-3">
+        <Link to="/login" className="underline underline-offset-4">Not an MFI? Switch portal</Link>
+      </p>
 
       {pendingUser && (
         <OtpVerifyModal
