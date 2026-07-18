@@ -1,13 +1,16 @@
 import { useEffect, useState, Fragment } from "react";
+import { useTranslation } from "react-i18next";
 import { Menu } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import LoanReviewModal from "../components/LoanReviewModal";
 import OfficerSignModal from "../components/OfficerSignModal";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 import { computeRiskScore, RISK_BAND_STYLES } from "../lib/riskScore";
 import { sendEmail as sendEmailJS } from "../lib/sendEmail";
 
 export default function MfiDashboard() {
+  const { t } = useTranslation();
   const { session, profile, signOut } = useAuth();
   const [tab, setTab] = useState("overview");
   const [loanQueue, setLoanQueue] = useState([]);
@@ -199,20 +202,20 @@ Log in to AgriLink to track your repayments.`,
   return (
     <div className="min-h-screen bg-paper flex">
       <div className="hidden md:block">
-        <Sidebar tab={tab} setTab={goTab} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} />
+        <Sidebar tab={tab} setTab={goTab} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} t={t} />
       </div>
 
       {mobileNavOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/50" onClick={() => setMobileNavOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0">
-            <Sidebar tab={tab} setTab={goTab} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} />
+            <Sidebar tab={tab} setTab={goTab} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} t={t} />
           </div>
         </div>
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar email={session?.user?.email} onSignOut={signOut} tab={tab} onMenuClick={() => setMobileNavOpen(true)} />
+        <TopBar email={session?.user?.email} onSignOut={signOut} tab={tab} onMenuClick={() => setMobileNavOpen(true)} t={t} />
 
         <main className="flex-1 px-4 md:px-8 py-6 md:py-8 overflow-auto">
           {tab === "overview" && (
@@ -223,6 +226,7 @@ Log in to AgriLink to track your repayments.`,
               totalDisbursed={totalDisbursed}
               loanQueue={loanQueue}
               setTab={goTab}
+              t={t}
             />
           )}
           {tab === "loans" && (
@@ -233,27 +237,31 @@ Log in to AgriLink to track your repayments.`,
               onDisburse={markDisbursed}
               officerEmail={session?.user?.email}
               reloadLoans={loadLoans}
+              t={t}
             />
           )}
-          {tab === "repayments" && <RepaymentsTable repayments={repayments} onRecordPayment={recordPayment} />}
+          {tab === "repayments" && <RepaymentsTable repayments={repayments} onRecordPayment={recordPayment} t={t} />}
         </main>
       </div>
     </div>
   );
 }
 
-function Sidebar({ tab, setTab, pendingLoans, dueOrOverdue }) {
+function Sidebar({ tab, setTab, pendingLoans, dueOrOverdue, t }) {
   const items = [
-    { key: "overview", label: "Overview", badge: 0 },
-    { key: "loans", label: "Loan Approvals", badge: pendingLoans },
-    { key: "repayments", label: "Repayments", badge: dueOrOverdue },
+    { key: "overview", label: t("dash_overview"), badge: 0 },
+    { key: "loans", label: t("dash_loan_approvals"), badge: pendingLoans },
+    { key: "repayments", label: t("dash_repayments"), badge: dueOrOverdue },
   ];
 
   return (
     <aside className="w-60 h-full bg-forestdark flex-shrink-0 flex flex-col">
-      <div className="px-6 py-6 border-b border-paper/10">
-        <span className="font-display text-xl font-semibold text-paper">AgriLink</span>
-        <p className="font-mono text-[10px] text-gold tracking-widest mt-1">MFI DASHBOARD</p>
+      <div className="px-6 py-6 border-b border-paper/10 flex items-center justify-between">
+        <div>
+          <span className="font-display text-xl font-semibold text-paper">AgriLink</span>
+          <p className="font-mono text-[10px] text-gold tracking-widest mt-1 uppercase">{t("dash_mfi_dashboard")}</p>
+        </div>
+        <LanguageSwitcher variant="dark" />
       </div>
       <nav className="flex-1 px-3 py-5 space-y-1">
         {items.map((item) => (
@@ -278,8 +286,8 @@ function Sidebar({ tab, setTab, pendingLoans, dueOrOverdue }) {
   );
 }
 
-function TopBar({ email, onSignOut, tab, onMenuClick }) {
-  const titles = { overview: "Overview", loans: "Loan Approvals", repayments: "Repayments" };
+function TopBar({ email, onSignOut, tab, onMenuClick, t }) {
+  const titles = { overview: t("dash_overview"), loans: t("dash_loan_approvals"), repayments: t("dash_repayments") };
   return (
     <header className="border-b border-forest/10 bg-white px-4 md:px-8 py-4 flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -289,37 +297,38 @@ function TopBar({ email, onSignOut, tab, onMenuClick }) {
         <h1 className="font-display text-base md:text-lg font-semibold text-forest">{titles[tab]}</h1>
       </div>
       <div className="flex items-center gap-2 md:gap-4">
+        <LanguageSwitcher />
         <span className="hidden sm:inline font-mono text-xs text-sage">{email}</span>
         <button onClick={onSignOut} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest/70 hover:bg-forest/5">
-          Log out
+          {t("log_out")}
         </button>
       </div>
     </header>
   );
 }
 
-function Overview({ uniqueFarmers, pendingLoans, awaitingDisbursement, totalDisbursed, loanQueue, setTab }) {
+function Overview({ uniqueFarmers, pendingLoans, awaitingDisbursement, totalDisbursed, loanQueue, setTab, t }) {
   const avgRiskScore = loanQueue.length > 0 ? Math.round(loanQueue.reduce((sum, l) => sum + computeRiskScore(l).score, 0) / loanQueue.length) : 0;
   const recentActivity = [...loanQueue].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)).slice(0, 6);
 
   return (
     <div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
-        <StatTile label="Applicants" value={uniqueFarmers} />
-        <StatTile label="Pending loans" value={pendingLoans} accent={pendingLoans > 0 ? "gold" : null} onClick={() => setTab("loans")} />
-        <StatTile label="Ready to disburse" value={awaitingDisbursement} accent={awaitingDisbursement > 0 ? "gold" : null} onClick={() => setTab("loans")} />
-        <StatTile label="Total disbursed" value={`${totalDisbursed.toLocaleString()} XAF`} mono />
-        <StatTile label="Avg. risk score" value={`${avgRiskScore}/100`} mono />
+        <StatTile label={t("dash_applicants")} value={uniqueFarmers} />
+        <StatTile label={t("dash_pending_loans")} value={pendingLoans} accent={pendingLoans > 0 ? "gold" : null} onClick={() => setTab("loans")} />
+        <StatTile label={t("dash_ready_disburse")} value={awaitingDisbursement} accent={awaitingDisbursement > 0 ? "gold" : null} onClick={() => setTab("loans")} />
+        <StatTile label={t("dash_total_disbursed")} value={`${totalDisbursed.toLocaleString()} XAF`} mono />
+        <StatTile label={t("dash_avg_risk")} value={`${avgRiskScore}/100`} mono />
       </div>
 
-      <h2 className="font-display text-base font-semibold text-forest mb-3">Recent activity</h2>
+      <h2 className="font-display text-base font-semibold text-forest mb-3">{t("dash_recent_activity")}</h2>
       <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
-        {recentActivity.length === 0 && <p className="text-sage text-sm px-5 py-6">No loan applications yet.</p>}
+        {recentActivity.length === 0 && <p className="text-sage text-sm px-5 py-6">{t("dash_no_loan_apps")}</p>}
         {recentActivity.map((item, i) => (
           <div key={item.id} className={`flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 ${i !== 0 ? "border-t border-forest/5" : ""}`}>
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(item.status)}`} />
             <span className="text-sm text-ink/80 flex-1 truncate">
-              Loan application from {item.profiles?.full_name || item.profiles?.email}
+              {t("dash_loan_from")} {item.profiles?.full_name || item.profiles?.email}
             </span>
             <span className="font-mono text-xs text-sage flex-shrink-0">{new Date(item.submitted_at).toLocaleDateString()}</span>
           </div>
@@ -344,7 +353,7 @@ function StatTile({ label, value, accent, mono, onClick }) {
   );
 }
 
-function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail, reloadLoans }) {
+function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail, reloadLoans, t }) {
   const [reviewing, setReviewing] = useState(null);
   const [signing, setSigning] = useState(null);
   const [disbursingId, setDisbursingId] = useState(null);
@@ -357,19 +366,19 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
           <thead>
             <tr className="border-b border-forest/10 text-left text-xs text-sage">
               <th className="w-1"></th>
-              <th className="px-5 py-3 font-medium">Farmer</th>
-              <th className="px-5 py-3 font-medium">Purpose</th>
-              <th className="px-5 py-3 font-medium text-right">Amount</th>
-              <th className="px-5 py-3 font-medium text-right">Risk score</th>
-              <th className="px-5 py-3 font-medium text-right">Mobile money</th>
-              <th className="px-5 py-3 font-medium text-right">Status</th>
-              <th className="px-5 py-3 font-medium text-right">Action</th>
+              <th className="px-5 py-3 font-medium">{t("dash_farmer")}</th>
+              <th className="px-5 py-3 font-medium">{t("dash_purpose")}</th>
+              <th className="px-5 py-3 font-medium text-right">{t("dash_amount")}</th>
+              <th className="px-5 py-3 font-medium text-right">{t("dash_risk_score")}</th>
+              <th className="px-5 py-3 font-medium text-right">{t("dash_mobile_money")}</th>
+              <th className="px-5 py-3 font-medium text-right">{t("dash_status")}</th>
+              <th className="px-5 py-3 font-medium text-right">{t("dash_action")}</th>
             </tr>
           </thead>
           <tbody>
             {loanQueue.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-5 py-8 text-center text-sage text-sm">No loan applications yet.</td>
+                <td colSpan={8} className="px-5 py-8 text-center text-sage text-sm">{t("dash_no_loan_apps")}</td>
               </tr>
             )}
             {loanQueue.map((l) => (
@@ -384,23 +393,23 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
                   <td className="px-5 py-3.5 text-right"><RiskBadge loan={l} /></td>
                   <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
                     {l.profiles?.mobile_money_number
-                      ? `${l.profiles.mobile_money_provider} ${l.profiles.mobile_money_number} (${l.profiles.mobile_money_holder_name || "no name"})`
-                      : "not set"}
+                      ? `${l.profiles.mobile_money_provider} ${l.profiles.mobile_money_number} (${l.profiles.mobile_money_holder_name || t("dash_no_name")})`
+                      : t("dash_not_set")}
                   </td>
                   <td className="px-5 py-3.5 text-right"><StatusBadge status={l.status} /></td>
                   <td className="px-5 py-3.5 text-right">
                     <div className="flex gap-2 justify-end">
                       <button onClick={() => setReviewing(l)} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5">
-                        Review
+                        {t("dash_review_btn")}
                       </button>
 
                       {l.status === "approved" && !l.farmer_signature && (
-                        <span className="text-xs text-sage px-3 py-1.5">Awaiting signature</span>
+                        <span className="text-xs text-sage px-3 py-1.5">{t("dash_awaiting_signature")}</span>
                       )}
 
                       {l.status === "approved" && l.farmer_signature && !l.officer_signature && (
                         <button onClick={() => setSigning(l)} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
-                          Countersign
+                          {t("dash_countersign_btn")}
                         </button>
                       )}
 
@@ -413,7 +422,7 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
                           }}
                           className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
                         >
-                          Mark disbursed
+                          {t("dash_mark_disbursed_btn")}
                         </button>
                       )}
                     </div>
@@ -426,7 +435,7 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
                       <div className="flex items-end gap-4 flex-wrap">
                         <label className="block flex-1 max-w-xs">
                           <span className="text-xs font-medium text-ink/70 mb-1 block">
-                            Mobile money reference (auto-generated, edit if you have the real one)
+                            {t("dash_momo_ref_label")}
                           </span>
                           <input
                             type="text"
@@ -441,10 +450,10 @@ function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail,
                           disabled={!reference.trim()}
                           className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark disabled:opacity-50"
                         >
-                          Confirm disbursed
+                          {t("dash_confirm_disbursed")}
                         </button>
                         <button onClick={() => setDisbursingId(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
-                          Cancel
+                          {t("dash_cancel")}
                         </button>
                       </div>
                     </td>
@@ -483,7 +492,7 @@ function generateReference(provider) {
   return `${prefix}-TXN-${random}`;
 }
 
-function RepaymentsTable({ repayments, onRecordPayment }) {
+function RepaymentsTable({ repayments, onRecordPayment, t }) {
   const [payingFor, setPayingFor] = useState(null);
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
@@ -511,18 +520,18 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
           <thead>
             <tr className="border-b border-forest/10 text-left text-xs text-sage">
               <th className="w-1"></th>
-              <th className="px-5 py-3 font-medium">Farmer</th>
-              <th className="px-5 py-3 font-medium">Installment</th>
-              <th className="px-5 py-3 font-medium">Due date</th>
-              <th className="px-5 py-3 font-medium text-right">Amount due</th>
-              <th className="px-5 py-3 font-medium text-right">Status</th>
-              <th className="px-5 py-3 font-medium text-right">Action</th>
+              <th className="px-5 py-3 font-medium">{t("dash_farmer")}</th>
+              <th className="px-5 py-3 font-medium">{t("dash_installment")}</th>
+              <th className="px-5 py-3 font-medium">{t("dash_due_date")}</th>
+              <th className="px-5 py-3 font-medium text-right">{t("dash_amount_due")}</th>
+              <th className="px-5 py-3 font-medium text-right">{t("dash_status")}</th>
+              <th className="px-5 py-3 font-medium text-right">{t("dash_action")}</th>
             </tr>
           </thead>
           <tbody>
             {repayments.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet.</td>
+                <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">{t("dash_no_repayments")}</td>
               </tr>
             )}
             {repayments.map((r) => {
@@ -542,12 +551,12 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                     <td className="px-5 py-3.5 text-right">
                       {status !== "paid" && (
                         <button onClick={() => startPayment(r)} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
-                          Record payment
+                          {t("dash_record_payment")}
                         </button>
                       )}
                       {status === "paid" && (
                         <span className="font-mono text-xs text-sage">
-                          {new Date(r.paid_at).toLocaleDateString()} {r.payment_reference || "no ref"}
+                          {new Date(r.paid_at).toLocaleDateString()} {r.payment_reference || t("dash_no_ref")}
                         </span>
                       )}
                     </td>
@@ -558,7 +567,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                       <td colSpan={6} className="px-5 py-4">
                         <div className="flex items-end gap-4 flex-wrap">
                           <label className="block">
-                            <span className="text-xs font-medium text-ink/70 mb-1 block">Amount received (XAF)</span>
+                            <span className="text-xs font-medium text-ink/70 mb-1 block">{t("dash_amount_received")}</span>
                             <input
                               type="number"
                               value={amount}
@@ -567,7 +576,7 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                             />
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-ink/70 mb-1 block">Mobile money reference</span>
+                            <span className="text-xs font-medium text-ink/70 mb-1 block">{t("dash_momo_ref_label")}</span>
                             <input
                               type="text"
                               value={reference}
@@ -580,10 +589,10 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
                             onClick={() => { onRecordPayment(r, Number(amount), reference); setPayingFor(null); }}
                             className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark"
                           >
-                            Confirm payment
+                            {t("dash_confirm_disbursed")}
                           </button>
                           <button onClick={() => setPayingFor(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
-                            Cancel
+                            {t("dash_cancel")}
                           </button>
                         </div>
                       </td>

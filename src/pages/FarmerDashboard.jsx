@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Sprout, Droplets, Wallet, ShieldCheck, MapPin, Plus,
   CheckCircle2, Circle, Clock3, Wheat, Smartphone, FileSignature,
@@ -10,9 +11,11 @@ import LoanApplicationWizard from "../components/LoanApplicationWizard";
 import PaymentSettingsModal from "../components/PaymentSettingsModal";
 import SignAgreementModal from "../components/SignAgreementModal";
 import MfiPickerModal from "../components/MfiPickerModal";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 import bgImage from "../assets/images/pic3.png";
 
 export default function FarmerDashboard() {
+  const { t } = useTranslation();
   const { session, profile, signOut, refreshProfile } = useAuth();
   const [loans, setLoans] = useState([]);
   const [repayments, setRepayments] = useState({});
@@ -82,9 +85,10 @@ export default function FarmerDashboard() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <span className="font-display text-2xl font-semibold text-forest">AgriLink</span>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             <NotificationBell userId={session.user.id} />
             <button onClick={signOut} className="text-sm text-sage hover:text-forest">
-              Log out
+              {t("log_out")}
             </button>
           </div>
         </div>
@@ -102,7 +106,7 @@ export default function FarmerDashboard() {
           <div>
             <p className="font-mono text-xs text-paper/70 mb-1">{today}</p>
             <h1 className="font-display text-2xl md:text-3xl font-semibold text-paper">
-              Welcome back, {profile?.full_name?.split(" ")[0] || "Farmer"}
+              {t("welcome_back")}, {profile?.full_name?.split(" ")[0] || t("farmer_default_name")}
             </h1>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -110,77 +114,77 @@ export default function FarmerDashboard() {
               onClick={() => setShowPayment(true)}
               className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition"
             >
-              <Smartphone size={16} /> Payment details
+              <Smartphone size={16} /> {t("payment_details_btn")}
             </button>
             <button
               onClick={() => setShowCropNote(true)}
               className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition"
             >
-              <Plus size={16} /> Add crop
+              <Plus size={16} /> {t("add_crop_btn")}
             </button>
             <button
               onClick={() => setShowMfiPicker(true)}
               className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full bg-mint text-forestdark font-semibold hover:brightness-95 transition"
             >
-              <Plus size={16} /> Apply for loan
+              <Plus size={16} /> {t("apply_for_loan_btn")}
             </button>
           </div>
         </div>
 
         {!hasPaymentDetails && (
           <div className="mb-6 bg-gold/10 border border-gold/30 rounded-xl px-4 py-3 flex items-center justify-between flex-wrap gap-2">
-            <p className="text-sm text-forest">Add your mobile money number so loans can be disbursed to you.</p>
+            <p className="text-sm text-forest">{t("add_momo_banner")}</p>
             <button
               onClick={() => setShowPayment(true)}
               className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
             >
-              Add now
+              {t("add_now")}
             </button>
           </div>
         )}
 
         {loans.some((l) => l.status === "approved" && !l.farmer_signature) && (
           <div className="mb-6 bg-mint/10 border border-mint/30 rounded-xl px-4 py-3 flex items-center justify-between flex-wrap gap-2">
-            <p className="text-sm text-forest">Your loan was approved. Please review and sign the agreement to proceed.</p>
+            <p className="text-sm text-forest">{t("sign_agreement_banner")}</p>
             <button
               onClick={() => setSigningLoan(loans.find((l) => l.status === "approved" && !l.farmer_signature))}
               className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
             >
-              Sign now
+              {t("sign_now")}
             </button>
           </div>
         )}
 
         {showCropNote && (
           <div className="mb-6 bg-mint/10 border border-mint/30 rounded-xl px-4 py-3 flex items-center justify-between">
-            <p className="text-sm text-forest">Crop tracking is coming soon, this will let you log plots and monitor yield here.</p>
+            <p className="text-sm text-forest">{t("crop_tracking_note")}</p>
             <button onClick={() => setShowCropNote(false)} className="text-sage hover:text-forest text-lg leading-none px-2">×</button>
           </div>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <MetricCard icon={<Sprout size={18} />} label="Crop yield" value="84%" sub="Healthy, illustrative" accent="mint" />
-          <MetricCard icon={<Droplets size={18} />} label="Soil moisture" value="42%" sub="Rain expected, illustrative" accent="gold" />
+          <MetricCard icon={<Sprout size={18} />} label={t("metric_crop_yield")} value="84%" sub={t("metric_healthy")} accent="mint" />
+          <MetricCard icon={<Droplets size={18} />} label={t("metric_soil_moisture")} value="42%" sub={t("metric_rain_expected")} accent="gold" />
           <MetricCard
             icon={<Wallet size={18} />}
-            label="Total disbursed"
+            label={t("metric_total_disbursed")}
             value={`${totalDisbursed.toLocaleString()} XAF`}
-            sub="Paid to mobile money"
+            sub={t("metric_paid_momo")}
             accent="forest"
             mono
           />
           <MetricCard
             icon={<ShieldCheck size={18} />}
-            label="Pending review"
+            label={t("metric_pending_review")}
             value={pendingCount}
-            sub={pendingCount === 1 ? "loan awaiting decision" : "loans awaiting decision"}
+            sub={pendingCount === 1 ? t("metric_loan_awaiting_singular") : t("metric_loan_awaiting_plural")}
             accent="sage"
           />
         </div>
 
         <div className="bg-white border border-forest/10 rounded-2xl p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-display text-base font-semibold text-forest">Loan pipeline</h2>
+            <h2 className="font-display text-base font-semibold text-forest">{t("loan_pipeline")}</h2>
             {latestLoan && (
               <span className="font-mono text-xs text-sage">
                 {Number(latestLoan.amount_requested).toLocaleString()} XAF, {latestLoan.purpose}
@@ -188,9 +192,9 @@ export default function FarmerDashboard() {
             )}
           </div>
           {!latestLoan ? (
-            <p className="text-sm text-sage">No active loan applications, apply above to start the process.</p>
+            <p className="text-sm text-sage">{t("no_active_loans")}</p>
           ) : (
-            <Pipeline loan={latestLoan} />
+            <Pipeline loan={latestLoan} t={t} />
           )}
         </div>
 
@@ -198,16 +202,16 @@ export default function FarmerDashboard() {
           <div className="md:col-span-2 bg-white border border-forest/10 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <MapPin size={16} className="text-forest" />
-              <h2 className="font-display text-base font-semibold text-forest">Farm plots</h2>
-              <span className="font-mono text-[10px] text-sage bg-forest/5 px-2 py-0.5 rounded-full ml-1">illustrative</span>
+              <h2 className="font-display text-base font-semibold text-forest">{t("farm_plots")}</h2>
+              <span className="font-mono text-[10px] text-sage bg-forest/5 px-2 py-0.5 rounded-full ml-1">{t("illustrative")}</span>
             </div>
-            <FarmPlotGrid />
+            <FarmPlotGrid t={t} />
           </div>
 
           <div className="bg-white border border-forest/10 rounded-2xl p-6">
-            <h2 className="font-display text-base font-semibold text-forest mb-4">Upcoming</h2>
+            <h2 className="font-display text-base font-semibold text-forest mb-4">{t("upcoming")}</h2>
             {upcomingRepayments.length === 0 && (
-              <p className="text-sm text-sage">No upcoming repayments.</p>
+              <p className="text-sm text-sage">{t("no_upcoming_repayments")}</p>
             )}
             <div className="space-y-3">
               {upcomingRepayments.map((r) => (
@@ -215,7 +219,7 @@ export default function FarmerDashboard() {
                   <Clock3 size={15} className="text-gold mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-sm text-ink/80">
-                      {Number(r.amount_due).toLocaleString()} XAF due
+                      {Number(r.amount_due).toLocaleString()} XAF {t("due_word")}
                     </p>
                     <p className="font-mono text-xs text-sage">{r.due_date}</p>
                   </div>
@@ -223,7 +227,7 @@ export default function FarmerDashboard() {
               ))}
               <div className="flex items-start gap-2.5 pt-2 border-t border-forest/5">
                 <Wheat size={15} className="text-mint mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-ink/60">Market prices steady this week, illustrative</p>
+                <p className="text-sm text-ink/60">{t("market_note")}</p>
               </div>
             </div>
           </div>
@@ -274,8 +278,8 @@ export default function FarmerDashboard() {
           />
         )}
 
-        <h2 className="font-display text-xl font-semibold text-forest mb-4">Your applications</h2>
-        {loans.length === 0 && <p className="text-sage text-sm">No loan applications yet.</p>}
+        <h2 className="font-display text-xl font-semibold text-forest mb-4">{t("your_applications")}</h2>
+        {loans.length === 0 && <p className="text-sage text-sm">{t("no_loan_applications")}</p>}
         <div className="space-y-3">
           {loans.map((loan) => (
             <div key={loan.id} className="bg-white border border-forest/10 rounded-2xl p-5">
@@ -284,16 +288,16 @@ export default function FarmerDashboard() {
                   <p className="font-mono font-medium">{Number(loan.amount_requested).toLocaleString()} XAF</p>
                   <p className="text-sm text-ink/60">{loan.purpose}</p>
                   {loan.mfis?.name && (
-                    <p className="text-xs text-sage mt-0.5">Applied to {loan.mfis.name}</p>
+                    <p className="text-xs text-sage mt-0.5">{t("applied_to")} {loan.mfis.name}</p>
                   )}
                   {(loan.status === "approved" || loan.status === "disbursed") && (
                     <p className="text-xs text-sage mt-1">
-                      {loan.interest_rate}% interest, {loan.term_months} months
+                      {loan.interest_rate}% {t("interest_months")}, {loan.term_months} {t("months")}
                     </p>
                   )}
                   {loan.status === "disbursed" && (
                     <p className="text-xs text-forest mt-1">
-                      Disbursed {new Date(loan.disbursed_at).toLocaleDateString()}, ref: {loan.disbursement_reference}
+                      {t("disbursed_ref")} {new Date(loan.disbursed_at).toLocaleDateString()}, {t("ref_word")}: {loan.disbursement_reference}
                     </p>
                   )}
                   {loan.status === "approved" && !loan.farmer_signature && (
@@ -301,14 +305,14 @@ export default function FarmerDashboard() {
                       onClick={() => setSigningLoan(loan)}
                       className="flex items-center gap-1 text-xs font-medium text-forest underline mt-2"
                     >
-                      <FileSignature size={13} /> Review & sign agreement
+                      <FileSignature size={13} /> {t("review_sign_link")}
                     </button>
                   )}
                   {loan.status === "approved" && loan.farmer_signature && !loan.officer_signature && (
-                    <p className="text-xs text-gold mt-2">Signed, awaiting loan officer countersignature</p>
+                    <p className="text-xs text-gold mt-2">{t("awaiting_countersign")}</p>
                   )}
                   {loan.status === "approved" && loan.farmer_signature && loan.officer_signature && (
-                    <p className="text-xs text-forest mt-2">Fully signed, awaiting disbursement</p>
+                    <p className="text-xs text-forest mt-2">{t("fully_signed_awaiting")}</p>
                   )}
                 </div>
                 <StatusPill status={loan.status} />
@@ -319,7 +323,7 @@ export default function FarmerDashboard() {
                   {repayments[loan.id].map((r) => (
                     <div key={r.id} className="flex items-center justify-between text-sm">
                       <span className="text-ink/70">
-                        Installment {r.installment_number}, due {r.due_date}
+                        {t("installment_word")} {r.installment_number}, {t("due_word_cap")} {r.due_date}
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="font-mono">{Number(r.amount_due).toLocaleString()} XAF</span>
@@ -359,12 +363,12 @@ function MetricCard({ icon, label, value, sub, accent, mono }) {
   );
 }
 
-function Pipeline({ loan }) {
+function Pipeline({ loan, t }) {
   const steps = [
-    { key: "applied", label: "Applied", done: true },
-    { key: "verified", label: "Verified", done: true },
-    { key: "signed", label: "Signed", done: !!loan.officer_signature },
-    { key: "disbursed", label: "Disbursed", done: loan.status === "disbursed" },
+    { key: "applied", label: t("pipeline_applied"), done: true },
+    { key: "verified", label: t("pipeline_verified"), done: true },
+    { key: "signed", label: t("pipeline_signed"), done: !!loan.officer_signature },
+    { key: "disbursed", label: t("pipeline_disbursed"), done: loan.status === "disbursed" },
   ];
 
   return (
@@ -390,7 +394,7 @@ function Pipeline({ loan }) {
   );
 }
 
-function FarmPlotGrid() {
+function FarmPlotGrid({ t }) {
   const plots = Array.from({ length: 24 }, (_, i) => {
     const seed = (i * 37) % 100;
     return seed > 70 ? "healthy" : seed > 40 ? "growing" : "fallow";
@@ -413,9 +417,9 @@ function FarmPlotGrid() {
         ))}
       </div>
       <div className="flex gap-4 text-xs text-sage">
-        <LegendDot color="bg-forest" label="Healthy" />
-        <LegendDot color="bg-mint" label="Growing" />
-        <LegendDot color="bg-forest/10" label="Fallow" />
+        <LegendDot color="bg-forest" label={t("legend_healthy")} />
+        <LegendDot color="bg-mint" label={t("legend_growing")} />
+        <LegendDot color="bg-forest/10" label={t("legend_fallow")} />
       </div>
     </div>
   );
