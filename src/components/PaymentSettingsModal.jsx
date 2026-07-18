@@ -1,9 +1,10 @@
 ﻿import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { sendEmail } from "../lib/sendEmail";
 import orangeLogo from "../assets/images/logo.png";
 import mtnLogo from "../assets/images/logo2.png";
-import { sendEmail } from "../lib/sendEmail";
 
 const PROVIDERS = [
   { key: "Orange", logo: orangeLogo },
@@ -11,6 +12,7 @@ const PROVIDERS = [
 ];
 
 export default function PaymentSettingsModal({ userId, userEmail, userName, currentProvider, currentNumber, currentHolderName, onClose, onSaved }) {
+  const { t } = useTranslation();
   const [provider, setProvider] = useState(currentProvider || "MTN");
   const [number, setNumber] = useState(currentNumber || "");
   const [holderName, setHolderName] = useState(currentHolderName || "");
@@ -20,11 +22,11 @@ export default function PaymentSettingsModal({ userId, userEmail, userName, curr
   const handleSave = async () => {
     setError("");
     if (!number.trim()) {
-      setError("Enter a mobile money number.");
+      setError(t("payment_error_number"));
       return;
     }
     if (!holderName.trim()) {
-      setError("Enter the name on the mobile money account.");
+      setError(t("payment_error_name"));
       return;
     }
     setSaving(true);
@@ -41,6 +43,14 @@ export default function PaymentSettingsModal({ userId, userEmail, userName, curr
       setError(updateError.message);
       return;
     }
+
+    await sendEmail(
+      userEmail,
+      userName,
+      "Your AgriLink payment details were updated",
+      `Your mobile money details were changed to ${provider} ${number.trim()} (${holderName.trim()}). If you did not make this change, please contact your MFI immediately.`
+    );
+
     onSaved();
     onClose();
   };
@@ -49,13 +59,13 @@ export default function PaymentSettingsModal({ userId, userEmail, userName, curr
     <div className="fixed inset-0 bg-ink/50 flex items-center justify-center p-6 z-50">
       <div className="bg-white rounded-2xl w-full max-w-sm">
         <div className="border-b border-forest/10 px-6 py-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold text-forest">Payment details</h2>
+          <h2 className="font-display text-lg font-semibold text-forest">{t("payment_title")}</h2>
           <button onClick={onClose} className="text-sage hover:text-forest px-2"><X size={18} /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
-          <p className="text-sm text-sage">This is where your loan will be disbursed to, and where you'll repay from.</p>
+          <p className="text-sm text-sage">{t("payment_intro")}</p>
           <div>
-            <p className="text-sm font-medium text-ink/80 mb-2">Provider</p>
+            <p className="text-sm font-medium text-ink/80 mb-2">{t("payment_provider")}</p>
             <div className="grid grid-cols-2 gap-2">
               {PROVIDERS.map((p) => (
                 <button
@@ -74,7 +84,7 @@ export default function PaymentSettingsModal({ userId, userEmail, userName, curr
             </div>
           </div>
           <label className="block">
-            <span className="text-sm font-medium text-ink/80 mb-1.5 block">Name on mobile money account</span>
+            <span className="text-sm font-medium text-ink/80 mb-1.5 block">{t("payment_holder_name")}</span>
             <input
               type="text"
               value={holderName}
@@ -84,7 +94,7 @@ export default function PaymentSettingsModal({ userId, userEmail, userName, curr
             />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-ink/80 mb-1.5 block">Mobile money number</span>
+            <span className="text-sm font-medium text-ink/80 mb-1.5 block">{t("payment_number")}</span>
             <input
               type="tel"
               value={number}
@@ -99,11 +109,10 @@ export default function PaymentSettingsModal({ userId, userEmail, userName, curr
             disabled={saving}
             className="w-full bg-forest text-paper font-medium py-2.5 rounded-lg hover:bg-forestdark transition disabled:opacity-60"
           >
-            {saving ? "Saving..." : "Save payment details"}
+            {saving ? t("payment_saving") : t("payment_save_btn")}
           </button>
         </div>
       </div>
     </div>
   );
 }
-

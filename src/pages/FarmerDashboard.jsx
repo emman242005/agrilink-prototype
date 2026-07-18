@@ -82,12 +82,12 @@ export default function FarmerDashboard() {
   return (
     <div className="min-h-screen bg-paper">
       <header className="border-b border-forest/10 bg-white sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <span className="font-display text-2xl font-semibold text-forest">AgriLink</span>
-          <div className="flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2 flex-wrap">
+          <span className="font-display text-lg sm:text-2xl font-semibold text-forest flex-shrink-0">AgriLink</span>
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
             <LanguageSwitcher />
             <NotificationBell userId={session.user.id} />
-            <button onClick={signOut} className="text-sm text-sage hover:text-forest">
+            <button onClick={signOut} className="text-xs sm:text-sm text-sage hover:text-forest whitespace-nowrap">
               {t("log_out")}
             </button>
           </div>

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { X, Search, Landmark } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
 export default function MfiPickerModal({ onClose, onSelect }) {
+  const { t } = useTranslation();
   const [mfis, setMfis] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,7 @@ export default function MfiPickerModal({ onClose, onSelect }) {
     <div className="fixed inset-0 bg-ink/50 flex items-center justify-center p-6 z-50">
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-forest/10 px-6 py-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold text-forest">Choose an MFI</h2>
+          <h2 className="font-display text-lg font-semibold text-forest">{t("mfi_picker_title")}</h2>
           <button onClick={onClose} className="text-sage hover:text-forest px-2">
             <X size={18} />
           </button>
@@ -43,16 +45,16 @@ export default function MfiPickerModal({ onClose, onSelect }) {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or region"
+              placeholder={t("mfi_picker_search")}
               className="w-full border border-forest/20 rounded-lg pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-mint/50 focus:border-forest"
             />
           </div>
         </div>
 
         <div className="px-6 pb-6 space-y-3">
-          {loading && <p className="text-sm text-sage">Loading institutions...</p>}
+          {loading && <p className="text-sm text-sage">{t("mfi_picker_loading")}</p>}
           {!loading && filtered.length === 0 && (
-            <p className="text-sm text-sage">No MFIs match your search yet.</p>
+            <p className="text-sm text-sage">{t("mfi_picker_none")}</p>
           )}
           {filtered.map((mfi) => (
             <button
