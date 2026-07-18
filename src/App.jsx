@@ -1,3 +1,6 @@
+import MfiDashboard from "./pages/MfiDashboard";
+import MfiDashboard from "./pages/MfiDashboard";
+import { RequireFarmer, RequireKycStatus, RequireAdmin, RequireMfi } from "./components/ProtectedRoute";
 import MfiSignUp from "./pages/MfiSignUp";
 import MfiLogin from "./pages/MfiLogin";
 import MfiPending from "./pages/MfiPending";
@@ -13,6 +16,7 @@ import FarmerDashboard from "./pages/FarmerDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminControlCentre from "./pages/AdminControlCentre";
 import { RequireFarmer, RequireKycStatus, RequireAdmin } from "./components/ProtectedRoute";
+import { RequireFarmer, RequireKycStatus, RequireAdmin, RequireMfiOfficer } from "./components/ProtectedRoute";
 
 export default function App() {
   return (
@@ -25,7 +29,7 @@ export default function App() {
       <Route path="/mfi/signup" element={<MfiSignUp />} />
       <Route path="/mfi/login" element={<MfiLogin />} />
       <Route path="/mfi/pending" element={<MfiPending />} />
-
+      <Route path="/mfi/dashboard"element={ <RequireMfi><MfiDashboard /> </RequireMfi>}/>
       <Route
         path="/kyc"
         element={
@@ -36,6 +40,14 @@ export default function App() {
           </RequireFarmer>
         }
       />
+      <Route
+  path="/mfi/dashboard"
+  element={
+    <RequireMfiOfficer>
+      <MfiDashboard />
+    </RequireMfiOfficer>
+  }
+/>
       <Route
         path="/pending"
         element={

@@ -9,12 +9,15 @@ import NotificationBell from "../components/NotificationBell";
 import LoanApplicationWizard from "../components/LoanApplicationWizard";
 import PaymentSettingsModal from "../components/PaymentSettingsModal";
 import SignAgreementModal from "../components/SignAgreementModal";
+import MfiPickerModal from "../components/MfiPickerModal";
 import bgImage from "../assets/images/pic3.png";
 
 export default function FarmerDashboard() {
   const { session, profile, signOut, refreshProfile } = useAuth();
   const [loans, setLoans] = useState([]);
   const [repayments, setRepayments] = useState({});
+  const [showMfiPicker, setShowMfiPicker] = useState(false);
+  const [selectedMfi, setSelectedMfi] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [showCropNote, setShowCropNote] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -23,7 +26,7 @@ export default function FarmerDashboard() {
   const loadLoans = async () => {
     const { data } = await supabase
       .from("loan_applications")
-      .select("*")
+      .select("*, mfis(name)")
       .eq("user_id", session.user.id)
       .order("submitted_at", { ascending: false });
     setLoans(data || []);
@@ -116,7 +119,7 @@ export default function FarmerDashboard() {
               <Plus size={16} /> Add crop
             </button>
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => setShowMfiPicker(true)}
               className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-full bg-mint text-forestdark font-semibold hover:brightness-95 transition"
             >
               <Plus size={16} /> Apply for loan
@@ -151,7 +154,7 @@ export default function FarmerDashboard() {
         {showCropNote && (
           <div className="mb-6 bg-mint/10 border border-mint/30 rounded-xl px-4 py-3 flex items-center justify-between">
             <p className="text-sm text-forest">Crop tracking is coming soon, this will let you log plots and monitor yield here.</p>
-            <button onClick={() => setShowCropNote(false)} className="text-sage hover:text-forest text-lg leading-none px-2">Ã—</button>
+            <button onClick={() => setShowCropNote(false)} className="text-sage hover:text-forest text-lg leading-none px-2">×</button>
           </div>
         )}
 
@@ -226,17 +229,34 @@ export default function FarmerDashboard() {
           </div>
         </div>
 
-        {showForm && (
+        {showMfiPicker && (
+          <MfiPickerModal
+            onClose={() => setShowMfiPicker(false)}
+            onSelect={(mfi) => {
+              setSelectedMfi(mfi);
+              setShowMfiPicker(false);
+              setShowForm(true);
+            }}
+          />
+        )}
+
+        {showForm && selectedMfi && (
           <LoanApplicationWizard
             userId={session.user.id}
-            onClose={() => setShowForm(false)}
-            onSuccess={() => { setShowForm(false); loadLoans(); }}
+            userEmail={session.user.email}
+            userName={profile?.full_name}
+            mfiId={selectedMfi.id}
+            mfiName={selectedMfi.name}
+            onClose={() => { setShowForm(false); setSelectedMfi(null); }}
+            onSuccess={() => { setShowForm(false); setSelectedMfi(null); loadLoans(); }}
           />
         )}
 
         {showPayment && (
           <PaymentSettingsModal
             userId={session.user.id}
+            userEmail={session.user.email}
+            userName={profile?.full_name}
             currentProvider={profile?.mobile_money_provider}
             currentNumber={profile?.mobile_money_number}
             currentHolderName={profile?.mobile_money_holder_name}
@@ -263,6 +283,9 @@ export default function FarmerDashboard() {
                 <div>
                   <p className="font-mono font-medium">{Number(loan.amount_requested).toLocaleString()} XAF</p>
                   <p className="text-sm text-ink/60">{loan.purpose}</p>
+                  {loan.mfis?.name && (
+                    <p className="text-xs text-sage mt-0.5">Applied to {loan.mfis.name}</p>
+                  )}
                   {(loan.status === "approved" || loan.status === "disbursed") && (
                     <p className="text-xs text-sage mt-1">
                       {loan.interest_rate}% interest, {loan.term_months} months

@@ -47,7 +47,7 @@ export default function MfiLogin() {
   };
 
   const handleVerified = () => {
-    navigate("/mfi/pending");
+    navigate("/mfi/dashboard");
   };
 
   const handleCancel = async () => {
