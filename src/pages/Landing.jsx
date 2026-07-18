@@ -17,16 +17,16 @@ export default function Landing() {
           backgroundPosition: "center",
         }}
       >
-        <header className="px-6 py-6 flex items-center justify-between max-w-6xl mx-auto w-full">
-          <span className="font-display text-2xl font-semibold text-paper">AgriLink</span>
-          <div className="flex items-center gap-2">
-            <Link to="/mfi/signup" className="text-sm font-medium px-4 py-2 rounded-full border border-gold/50 text-gold hover:bg-gold/10 transition">
+        <header className="px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between max-w-6xl mx-auto w-full gap-2">
+          <span className="font-display text-lg sm:text-2xl font-semibold text-paper flex-shrink-0">AgriLink</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+            <Link to="/mfi/signup" className="hidden sm:inline-block text-sm font-medium px-4 py-2 rounded-full border border-gold/50 text-gold hover:bg-gold/10 transition whitespace-nowrap">
               Register as an MFI
             </Link>
-            <Link to="/login" className="text-sm font-medium px-4 py-2 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition">
+            <Link to="/login" className="text-xs sm:text-sm font-medium px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-paper/30 text-paper hover:bg-paper/10 transition whitespace-nowrap">
               Log in
             </Link>
-            <Link to="/signup" className="text-sm font-medium px-4 py-2 rounded-full bg-mint text-forestdark font-semibold hover:brightness-95 transition">
+            <Link to="/signup" className="text-xs sm:text-sm font-medium px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-mint text-forestdark font-semibold hover:brightness-95 transition whitespace-nowrap">
               Sign up
             </Link>
           </div>
