@@ -1,13 +1,12 @@
-﻿import { useEffect, useState, Fragment } from "react";
+﻿import AdminLoanDetailModal from "../components/AdminLoanDetailModal";
+import { useEffect, useState, Fragment } from "react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import KycReviewModal from "../components/KycReviewModal";
-import LoanReviewModal from "../components/LoanReviewModal";
-import OfficerSignModal from "../components/OfficerSignModal";
 import { computeRiskScore, RISK_BAND_STYLES } from "../lib/riskScore";
 import { sendEmail as sendEmailJS } from "../lib/sendEmail";
 
@@ -32,7 +31,7 @@ export default function AdminControlCentre() {
   const loadLoans = async () => {
     const { data, error } = await supabase
       .from("loan_applications")
-      .select("*, profiles!loan_applications_user_id_fkey(full_name, email, mobile_money_provider, mobile_money_number, mobile_money_holder_name)")
+      .select("*, profiles!loan_applications_user_id_fkey(full_name, email), mfis(name)")
       .order("submitted_at", { ascending: false });
     if (error) console.error("loadLoans error:", error);
     setLoanQueue(data || []);
@@ -41,7 +40,7 @@ export default function AdminControlCentre() {
   const loadRepayments = async () => {
     const { data, error } = await supabase
       .from("loan_repayments")
-      .select("*, loan_applications(purpose, profiles!loan_applications_user_id_fkey(full_name, email))")
+      .select("*, loan_applications(purpose, profiles!loan_applications_user_id_fkey(full_name, email), mfis(name))")
       .order("due_date", { ascending: true });
     if (error) console.error("loadRepayments error:", error);
     setRepayments(data || []);
@@ -95,144 +94,6 @@ export default function AdminControlCentre() {
     loadKyc();
   };
 
-  const decideLoan = async (loan, decision) => {
-    await supabase
-      .from("loan_applications")
-      .update({ status: decision, reviewed_at: new Date().toISOString(), reviewed_by: session.user.id })
-      .eq("id", loan.id);
-
-    await supabase.from("notifications").insert({
-      user_id: loan.user_id,
-      message:
-        decision === "declined"
-          ? `Your loan request for ${Number(loan.amount_requested).toLocaleString()} XAF was declined.`
-          : "Your loan status was updated.",
-      type: decision === "declined" ? "warning" : "info",
-    });
-
-    await sendEmail(
-      loan.profiles?.email,
-      decision === "declined" ? "Your AgriLink loan request was declined" : "Update on your AgriLink loan",
-      decision === "declined"
-        ? `Your loan request for ${Number(loan.amount_requested).toLocaleString()} XAF was declined.`
-        : "Your loan status was updated. Log in to view details.",
-      loan.profiles?.full_name
-    );
-
-    loadLoans();
-  };
-
-  const generateSchedule = (loan, interestRate, termMonths) => {
-    const principal = Number(loan.amount_requested);
-    const totalWithInterest = principal * (1 + interestRate / 100);
-    const monthlyAmount = Math.round(totalWithInterest / termMonths);
-    const installments = [];
-    const startDate = new Date();
-    for (let i = 1; i <= termMonths; i++) {
-      const dueDate = new Date(startDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
-      installments.push({
-        loan_id: loan.id,
-        installment_number: i,
-        due_date: dueDate.toISOString().split("T")[0],
-        amount_due: monthlyAmount,
-        status: "upcoming",
-      });
-    }
-    return installments;
-  };
-
-  const approveLoanWithTerms = async (loan, interestRate, termMonths) => {
-    await supabase
-      .from("loan_applications")
-      .update({
-        status: "approved",
-        interest_rate: interestRate,
-        term_months: termMonths,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: session.user.id,
-      })
-      .eq("id", loan.id);
-
-    await supabase.from("notifications").insert({
-      user_id: loan.user_id,
-      message: `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% over ${termMonths} months. Please log in to review and sign the loan agreement.`,
-      type: "success",
-    });
-
-    await sendEmail(
-      loan.profiles?.email,
-      "Your AgriLink loan was approved, action needed",
-      `Your loan for ${Number(loan.amount_requested).toLocaleString()} XAF was approved at ${interestRate}% interest over ${termMonths} months. Please log in to review and sign the loan agreement before funds can be disbursed.`,
-      loan.profiles?.full_name
-    );
-
-    loadLoans();
-  };
-
-  const markDisbursed = async (loan, reference) => {
-    await supabase
-      .from("loan_applications")
-      .update({
-        status: "disbursed",
-        disbursed_at: new Date().toISOString(),
-        disbursement_reference: reference,
-        disbursed_by: session.user.id,
-      })
-      .eq("id", loan.id);
-
-    const schedule = generateSchedule(loan, loan.interest_rate, loan.term_months);
-    await supabase.from("loan_repayments").insert(schedule);
-
-    await supabase.from("notifications").insert({
-      user_id: loan.user_id,
-      message: `${Number(loan.amount_requested).toLocaleString()} XAF was disbursed to your ${loan.profiles?.mobile_money_provider || "mobile money"} number. Reference: ${reference}.`,
-      type: "success",
-    });
-
-    const disbursementDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-    const scheduleText = schedule
-      .map((s) => `Installment ${s.installment_number}: ${s.amount_due.toLocaleString()} XAF, due ${s.due_date}`)
-      .join("\n");
-
-    await sendEmail(
-      loan.profiles?.email,
-      "Your AgriLink loan has been disbursed",
-      `${Number(loan.amount_requested).toLocaleString()} XAF was sent to your ${loan.profiles?.mobile_money_provider || "mobile money"} number ${loan.profiles?.mobile_money_number || ""}.
-
-Disbursement date: ${disbursementDate}
-Reference: ${reference}
-
-REPAYMENT SCHEDULE
-
-${scheduleText}
-
-Log in to AgriLink to track your repayments.`,
-      loan.profiles?.full_name
-    );
-
-    loadLoans();
-    loadRepayments();
-  };
-
-  const recordPayment = async (repayment, amountPaid, reference) => {
-    await supabase
-      .from("loan_repayments")
-      .update({ amount_paid: amountPaid, status: "paid", paid_at: new Date().toISOString(), payment_reference: reference })
-      .eq("id", repayment.id);
-
-    const loan = loanQueue.find((l) => l.id === repayment.loan_id);
-    if (loan) {
-      await supabase.from("notifications").insert({
-        user_id: loan.user_id,
-        message: `Payment of ${amountPaid.toLocaleString()} XAF for installment #${repayment.installment_number} was recorded. Ref: ${reference || "none"}.`,
-        type: "success",
-      });
-    }
-
-    loadRepayments();
-  };
-
   const decideMfi = async (mfi, decision) => {
     await supabase
       .from("mfis")
@@ -251,12 +112,10 @@ Log in to AgriLink to track your repayments.`,
   };
 
   const pendingKyc = kycQueue.filter((k) => k.status === "pending").length;
-  const pendingLoans = loanQueue.filter((l) => l.status === "pending").length;
   const pendingMfis = mfiQueue.filter((m) => m.status === "pending").length;
-  const awaitingDisbursement = loanQueue.filter((l) => l.status === "approved" && l.officer_signature).length;
   const totalDisbursed = loanQueue.filter((l) => l.status === "disbursed").reduce((sum, l) => sum + Number(l.amount_requested), 0);
   const uniqueFarmers = new Set(kycQueue.map((k) => k.user_id)).size;
-  const dueOrOverdue = repayments.filter((r) => r.status !== "paid" && new Date(r.due_date) <= new Date()).length;
+  const activeMfis = mfiQueue.filter((m) => m.status === "approved").length;
 
   const goTab = (t) => {
     setTab(t);
@@ -266,33 +125,28 @@ Log in to AgriLink to track your repayments.`,
   return (
     <div className="min-h-screen bg-paper flex">
       <div className="hidden md:block">
-        <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} pendingMfis={pendingMfis} dueOrOverdue={dueOrOverdue} />
+        <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingMfis={pendingMfis} />
       </div>
 
       {mobileNavOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/50" onClick={() => setMobileNavOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0">
-            <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingLoans={pendingLoans} pendingMfis={pendingMfis} dueOrOverdue={dueOrOverdue} />
+            <Sidebar tab={tab} setTab={goTab} pendingKyc={pendingKyc} pendingMfis={pendingMfis} />
           </div>
         </div>
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar
-          email={session?.user?.email}
-          onSignOut={signOut}
-          tab={tab}
-          onMenuClick={() => setMobileNavOpen(true)}
-        />
+        <TopBar email={session?.user?.email} onSignOut={signOut} tab={tab} onMenuClick={() => setMobileNavOpen(true)} />
 
         <main className="flex-1 px-4 md:px-8 py-6 md:py-8 overflow-auto">
           {tab === "overview" && (
             <Overview
               uniqueFarmers={uniqueFarmers}
               pendingKyc={pendingKyc}
-              pendingLoans={pendingLoans}
-              awaitingDisbursement={awaitingDisbursement}
+              activeMfis={activeMfis}
+              pendingMfis={pendingMfis}
               totalDisbursed={totalDisbursed}
               kycQueue={kycQueue}
               loanQueue={loanQueue}
@@ -301,30 +155,21 @@ Log in to AgriLink to track your repayments.`,
           )}
           {tab === "mfis" && <MfiTable mfiQueue={mfiQueue} onApprove={decideMfi} onDeny={decideMfi} />}
           {tab === "kyc" && <KycTable kycQueue={kycQueue} onApprove={decideKyc} onDeny={decideKyc} />}
-          {tab === "loans" && (
-            <LoansTable
-              loanQueue={loanQueue}
-              onApprove={approveLoanWithTerms}
-              onDecline={decideLoan}
-              onDisburse={markDisbursed}
-              officerEmail={session?.user?.email}
-              reloadLoans={loadLoans}
-            />
-          )}
-          {tab === "repayments" && <RepaymentsTable repayments={repayments} onRecordPayment={recordPayment} />}
+          {tab === "loans" && <LoansMonitor loanQueue={loanQueue} />}
+          {tab === "repayments" && <RepaymentsMonitor repayments={repayments} />}
         </main>
       </div>
     </div>
   );
 }
 
-function Sidebar({ tab, setTab, pendingKyc, pendingLoans, pendingMfis, dueOrOverdue }) {
+function Sidebar({ tab, setTab, pendingKyc, pendingMfis }) {
   const items = [
     { key: "overview", label: "Overview", badge: 0 },
     { key: "mfis", label: "MFI Applications", badge: pendingMfis },
     { key: "kyc", label: "KYC Review", badge: pendingKyc },
-    { key: "loans", label: "Loan Approvals", badge: pendingLoans },
-    { key: "repayments", label: "Repayments", badge: dueOrOverdue },
+    { key: "loans", label: "Network Loans", badge: 0 },
+    { key: "repayments", label: "Network Repayments", badge: 0 },
   ];
 
   return (
@@ -350,14 +195,14 @@ function Sidebar({ tab, setTab, pendingKyc, pendingLoans, pendingMfis, dueOrOver
         ))}
       </nav>
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v1.6 prototype</p>
+        <p className="font-mono text-[10px] text-paper/30">v2.0 prototype</p>
       </div>
     </aside>
   );
 }
 
 function TopBar({ email, onSignOut, tab, onMenuClick }) {
-  const titles = { overview: "Overview", mfis: "MFI Applications", kyc: "KYC Review", loans: "Loan Approvals", repayments: "Repayments" };
+  const titles = { overview: "Overview", mfis: "MFI Applications", kyc: "KYC Review", loans: "Network Loans", repayments: "Network Repayments" };
   return (
     <header className="border-b border-forest/10 bg-white px-4 md:px-8 py-4 flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -435,7 +280,7 @@ function MfiTable({ mfiQueue, onApprove, onDeny }) {
   );
 }
 
-function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursement, totalDisbursed, kycQueue, loanQueue, setTab }) {
+function Overview({ uniqueFarmers, pendingKyc, activeMfis, pendingMfis, totalDisbursed, kycQueue, loanQueue, setTab }) {
   const avgRiskScore = loanQueue.length > 0 ? Math.round(loanQueue.reduce((sum, l) => sum + computeRiskScore(l).score, 0) / loanQueue.length) : 0;
   const recentActivity = [...kycQueue, ...loanQueue].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)).slice(0, 6);
   const growthData = buildGrowthData(kycQueue);
@@ -445,10 +290,10 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
   return (
     <div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 mb-6 md:mb-8">
+        <StatTile label="Active MFIs" value={activeMfis} onClick={() => setTab("mfis")} />
+        <StatTile label="Pending MFIs" value={pendingMfis} accent={pendingMfis > 0 ? "gold" : null} onClick={() => setTab("mfis")} />
         <StatTile label="Registered farmers" value={uniqueFarmers} />
         <StatTile label="Pending KYC" value={pendingKyc} accent={pendingKyc > 0 ? "gold" : null} onClick={() => setTab("kyc")} />
-        <StatTile label="Pending loans" value={pendingLoans} accent={pendingLoans > 0 ? "gold" : null} onClick={() => setTab("loans")} />
-        <StatTile label="Ready to disburse" value={awaitingDisbursement} accent={awaitingDisbursement > 0 ? "gold" : null} onClick={() => setTab("loans")} />
         <StatTile label="Total disbursed" value={`${totalDisbursed.toLocaleString()} XAF`} mono />
         <StatTile label="Avg. loan risk score" value={`${avgRiskScore}/100`} mono />
       </div>
@@ -484,7 +329,7 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
       </div>
 
       <div className="mb-8">
-        <ChartCard title="Loan volume by month">
+        <ChartCard title="Loan volume by month, across all MFIs">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={volumeData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1B443215" vertical={false} />
@@ -510,6 +355,7 @@ function Overview({ uniqueFarmers, pendingKyc, pendingLoans, awaitingDisbursemen
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusDot(item.status)}`} />
               <span className="text-sm text-ink/80 flex-1 truncate">
                 {isKyc ? "KYC submission" : "Loan application"} for {item.full_name || item.profiles?.full_name || item.profiles?.email}
+                {item.mfis?.name && ` (${item.mfis.name})`}
               </span>
               <span className="font-mono text-xs text-sage flex-shrink-0">{new Date(item.submitted_at).toLocaleDateString()}</span>
             </div>
@@ -640,133 +486,59 @@ function KycTable({ kycQueue, onApprove, onDeny }) {
   );
 }
 
-function LoansTable({ loanQueue, onApprove, onDecline, onDisburse, officerEmail, reloadLoans }) {
-  const [reviewing, setReviewing] = useState(null);
-  const [signing, setSigning] = useState(null);
-  const [disbursingId, setDisbursingId] = useState(null);
-  const [reference, setReference] = useState("");
+function LoansMonitor({ loanQueue }) {
+  const [viewing, setViewing] = useState(null);
 
   return (
-    <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[900px]">
-          <thead>
-            <tr className="border-b border-forest/10 text-left text-xs text-sage">
-              <th className="w-1"></th>
-              <th className="px-5 py-3 font-medium">Farmer</th>
-              <th className="px-5 py-3 font-medium">Purpose</th>
-              <th className="px-5 py-3 font-medium text-right">Amount</th>
-              <th className="px-5 py-3 font-medium text-right">Risk score</th>
-              <th className="px-5 py-3 font-medium text-right">Mobile money</th>
-              <th className="px-5 py-3 font-medium text-right">Status</th>
-              <th className="px-5 py-3 font-medium text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loanQueue.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-5 py-8 text-center text-sage text-sm">No loan applications yet.</td>
+    <div>
+      <p className="text-sm text-sage mb-4">
+        Read-only view. Loan decisions belong to each farmer's chosen MFI, this is here so you can monitor activity and documents across the network.
+      </p>
+      <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[900px]">
+            <thead>
+              <tr className="border-b border-forest/10 text-left text-xs text-sage">
+                <th className="w-1"></th>
+                <th className="px-5 py-3 font-medium">Farmer</th>
+                <th className="px-5 py-3 font-medium">MFI</th>
+                <th className="px-5 py-3 font-medium">Purpose</th>
+                <th className="px-5 py-3 font-medium text-right">Amount</th>
+                <th className="px-5 py-3 font-medium text-right">Risk score</th>
+                <th className="px-5 py-3 font-medium text-right">Status</th>
+                <th className="px-5 py-3 font-medium text-right">Action</th>
               </tr>
-            )}
-            {loanQueue.map((l) => (
-              <Fragment key={l.id}>
-                <tr className="border-b border-forest/5">
+            </thead>
+            <tbody>
+              {loanQueue.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-8 text-center text-sage text-sm">No loan applications yet.</td>
+                </tr>
+              )}
+              {loanQueue.map((l) => (
+                <tr key={l.id} className="border-b border-forest/5">
                   <td className={`w-1 ${railColor(l.status)}`}></td>
                   <td className="px-5 py-3.5">
                     <p className="font-medium text-ink">{l.profiles?.full_name || l.profiles?.email}</p>
                   </td>
+                  <td className="px-5 py-3.5 text-ink/70">{l.mfis?.name || "—"}</td>
                   <td className="px-5 py-3.5 text-ink/70">{l.purpose}</td>
                   <td className="px-5 py-3.5 text-right font-mono">{Number(l.amount_requested).toLocaleString()} XAF</td>
                   <td className="px-5 py-3.5 text-right"><RiskBadge loan={l} /></td>
-                  <td className="px-5 py-3.5 text-right font-mono text-xs text-sage">
-                    {l.profiles?.mobile_money_number
-                      ? `${l.profiles.mobile_money_provider} ${l.profiles.mobile_money_number} (${l.profiles.mobile_money_holder_name || "no name"})`
-                      : "not set"}
-                  </td>
                   <td className="px-5 py-3.5 text-right"><StatusBadge status={l.status} /></td>
                   <td className="px-5 py-3.5 text-right">
-                    <div className="flex gap-2 justify-end">
-                      <button onClick={() => setReviewing(l)} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5">
-                        Review
-                      </button>
-
-                      {l.status === "approved" && !l.farmer_signature && (
-                        <span className="text-xs text-sage px-3 py-1.5">Awaiting signature</span>
-                      )}
-
-                      {l.status === "approved" && l.farmer_signature && !l.officer_signature && (
-                        <button
-                          onClick={() => setSigning(l)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                        >
-                          Countersign
-                        </button>
-                      )}
-
-                      {l.status === "approved" && l.officer_signature && (
-                        <button
-                          onClick={() => {
-                            const isOpen = disbursingId === l.id;
-                            setDisbursingId(isOpen ? null : l.id);
-                            if (!isOpen) setReference(generateReference(l.profiles?.mobile_money_provider));
-                          }}
-                          className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark"
-                        >
-                          Mark disbursed
-                        </button>
-                      )}
-                    </div>
+                    <button onClick={() => setViewing(l)} className="text-xs font-medium px-3 py-1.5 rounded-full border border-forest/20 text-forest hover:bg-forest/5">
+                      View
+                    </button>
                   </td>
                 </tr>
-                {disbursingId === l.id && (
-                  <tr className="border-b border-forest/5 bg-forest/[0.015]">
-                    <td></td>
-                    <td colSpan={7} className="px-5 py-4">
-                      <div className="flex items-end gap-4 flex-wrap">
-                        <label className="block flex-1 max-w-xs">
-                          <span className="text-xs font-medium text-ink/70 mb-1 block">
-                            Mobile money reference (auto-generated, edit if you have the real one)
-                          </span>
-                          <input
-                            type="text"
-                            value={reference}
-                            onChange={(e) => setReference(e.target.value)}
-                            placeholder="e.g. MTN-TXN-48213"
-                            className="w-full border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
-                          />
-                        </label>
-                        <button
-                          onClick={() => { onDisburse(l, reference); setDisbursingId(null); }}
-                          disabled={!reference.trim()}
-                          className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark disabled:opacity-50"
-                        >
-                          Confirm disbursed
-                        </button>
-                        <button onClick={() => setDisbursingId(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
-                          Cancel
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {reviewing && (
-        <LoanReviewModal loan={reviewing} onClose={() => setReviewing(null)} onApprove={onApprove} onDecline={(l) => onDecline(l, "declined")} />
-      )}
-
-      {signing && (
-        <OfficerSignModal
-          loan={signing}
-          officerName={officerEmail}
-          onClose={() => setSigning(null)}
-          onSigned={reloadLoans}
-        />
-      )}
+      {viewing && <AdminLoanDetailModal loan={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }
@@ -781,17 +553,7 @@ function RiskBadge({ loan }) {
   );
 }
 
-function generateReference(provider) {
-  const prefix = provider === "MTN" ? "MTN" : provider === "Orange" ? "ORG" : "TXN";
-  const random = Math.floor(100000 + Math.random() * 900000);
-  return `${prefix}-TXN-${random}`;
-}
-
-function RepaymentsTable({ repayments, onRecordPayment }) {
-  const [payingFor, setPayingFor] = useState(null);
-  const [amount, setAmount] = useState("");
-  const [reference, setReference] = useState("");
-
+function RepaymentsMonitor({ repayments }) {
   const computeStatus = (r) => {
     if (r.status === "paid") return "paid";
     const due = new Date(r.due_date);
@@ -802,102 +564,50 @@ function RepaymentsTable({ repayments, onRecordPayment }) {
     return "upcoming";
   };
 
-  const startPayment = (r) => {
-    setPayingFor(r.id);
-    setAmount(String(r.amount_due));
-    setReference("");
-  };
-
   return (
-    <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[800px]">
-          <thead>
-            <tr className="border-b border-forest/10 text-left text-xs text-sage">
-              <th className="w-1"></th>
-              <th className="px-5 py-3 font-medium">Farmer</th>
-              <th className="px-5 py-3 font-medium">Installment</th>
-              <th className="px-5 py-3 font-medium">Due date</th>
-              <th className="px-5 py-3 font-medium text-right">Amount due</th>
-              <th className="px-5 py-3 font-medium text-right">Status</th>
-              <th className="px-5 py-3 font-medium text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {repayments.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet. Disburse a loan to generate one.</td>
+    <div>
+      <p className="text-sm text-sage mb-4">
+        Read-only view. Payments are recorded by each MFI, this is here so you can monitor repayment health across the network.
+      </p>
+      <div className="bg-white border border-forest/10 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[800px]">
+            <thead>
+              <tr className="border-b border-forest/10 text-left text-xs text-sage">
+                <th className="w-1"></th>
+                <th className="px-5 py-3 font-medium">Farmer</th>
+                <th className="px-5 py-3 font-medium">MFI</th>
+                <th className="px-5 py-3 font-medium">Installment</th>
+                <th className="px-5 py-3 font-medium">Due date</th>
+                <th className="px-5 py-3 font-medium text-right">Amount due</th>
+                <th className="px-5 py-3 font-medium text-right">Status</th>
               </tr>
-            )}
-            {repayments.map((r) => {
-              const status = computeStatus(r);
-              return (
-                <Fragment key={r.id}>
-                  <tr className="border-b border-forest/5">
+            </thead>
+            <tbody>
+              {repayments.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-8 text-center text-sage text-sm">No repayment schedules yet.</td>
+                </tr>
+              )}
+              {repayments.map((r) => {
+                const status = computeStatus(r);
+                return (
+                  <tr key={r.id} className="border-b border-forest/5">
                     <td className={`w-1 ${repaymentRailColor(status)}`}></td>
                     <td className="px-5 py-3.5">
                       <p className="font-medium text-ink">{r.loan_applications?.profiles?.full_name || r.loan_applications?.profiles?.email}</p>
-                      <p className="text-xs text-sage">{r.loan_applications?.purpose}</p>
                     </td>
+                    <td className="px-5 py-3.5 text-ink/70">{r.loan_applications?.mfis?.name || "—"}</td>
                     <td className="px-5 py-3.5 text-ink/70">#{r.installment_number}</td>
                     <td className="px-5 py-3.5 font-mono text-xs text-sage">{r.due_date}</td>
                     <td className="px-5 py-3.5 text-right font-mono">{Number(r.amount_due).toLocaleString()} XAF</td>
                     <td className="px-5 py-3.5 text-right"><RepaymentStatusBadge status={status} /></td>
-                    <td className="px-5 py-3.5 text-right">
-                      {status !== "paid" && (
-                        <button onClick={() => startPayment(r)} className="text-xs font-medium px-3 py-1.5 rounded-full bg-forest text-paper hover:bg-forestdark">
-                          Record payment
-                        </button>
-                      )}
-                      {status === "paid" && (
-                        <span className="font-mono text-xs text-sage">
-                          {new Date(r.paid_at).toLocaleDateString()} {r.payment_reference || "no ref"}
-                        </span>
-                      )}
-                    </td>
                   </tr>
-                  {payingFor === r.id && (
-                    <tr className="border-b border-forest/5 bg-forest/[0.015]">
-                      <td></td>
-                      <td colSpan={6} className="px-5 py-4">
-                        <div className="flex items-end gap-4 flex-wrap">
-                          <label className="block">
-                            <span className="text-xs font-medium text-ink/70 mb-1 block">Amount received (XAF)</span>
-                            <input
-                              type="number"
-                              value={amount}
-                              onChange={(e) => setAmount(e.target.value)}
-                              className="w-36 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
-                            />
-                          </label>
-                          <label className="block">
-                            <span className="text-xs font-medium text-ink/70 mb-1 block">Mobile money reference</span>
-                            <input
-                              type="text"
-                              value={reference}
-                              onChange={(e) => setReference(e.target.value)}
-                              placeholder="e.g. MTN-TXN-58213"
-                              className="w-48 border border-forest/20 rounded-lg px-3 py-1.5 text-sm"
-                            />
-                          </label>
-                          <button
-                            onClick={() => { onRecordPayment(r, Number(amount), reference); setPayingFor(null); }}
-                            className="text-xs font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-forestdark"
-                          >
-                            Confirm payment
-                          </button>
-                          <button onClick={() => setPayingFor(null)} className="text-xs font-medium px-3 py-2 rounded-full border border-forest/20 text-forest/70">
-                            Cancel
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

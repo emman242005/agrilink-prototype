@@ -16,6 +16,7 @@ export default function MfiDashboard() {
   const [loanQueue, setLoanQueue] = useState([]);
   const [repayments, setRepayments] = useState([]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mfiName, setMfiName] = useState("");
 
   const loadLoans = async () => {
     if (!profile?.mfi_id) return;
@@ -43,6 +44,12 @@ export default function MfiDashboard() {
     if (profile?.mfi_id) {
       loadLoans();
       loadRepayments();
+      supabase
+        .from("mfis")
+        .select("name")
+        .eq("id", profile.mfi_id)
+        .single()
+        .then(({ data }) => setMfiName(data?.name || ""));
     }
   }, [profile]);
 
@@ -202,14 +209,14 @@ Log in to AgriLink to track your repayments.`,
   return (
     <div className="min-h-screen bg-paper flex">
       <div className="hidden md:block">
-        <Sidebar tab={tab} setTab={goTab} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} t={t} />
+        <Sidebar tab={tab} setTab={goTab} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} t={t} mfiName={mfiName} />
       </div>
 
       {mobileNavOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-ink/50" onClick={() => setMobileNavOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0">
-            <Sidebar tab={tab} setTab={goTab} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} t={t} />
+            <Sidebar tab={tab} setTab={goTab} pendingLoans={pendingLoans} dueOrOverdue={dueOrOverdue} t={t} mfiName={mfiName} />
           </div>
         </div>
       )}
@@ -247,7 +254,7 @@ Log in to AgriLink to track your repayments.`,
   );
 }
 
-function Sidebar({ tab, setTab, pendingLoans, dueOrOverdue, t }) {
+function Sidebar({ tab, setTab, pendingLoans, dueOrOverdue, t, mfiName }) {
   const items = [
     { key: "overview", label: t("dash_overview"), badge: 0 },
     { key: "loans", label: t("dash_loan_approvals"), badge: pendingLoans },
@@ -257,9 +264,9 @@ function Sidebar({ tab, setTab, pendingLoans, dueOrOverdue, t }) {
   return (
     <aside className="w-60 h-full bg-forestdark flex-shrink-0 flex flex-col">
       <div className="px-6 py-6 border-b border-paper/10 flex items-center justify-between">
-        <div>
+        <div className="min-w-0">
           <span className="font-display text-xl font-semibold text-paper">AgriLink</span>
-          <p className="font-mono text-[10px] text-gold tracking-widest mt-1 uppercase">{t("dash_mfi_dashboard")}</p>
+          <p className="font-mono text-[10px] text-gold tracking-widest mt-1 uppercase truncate">{mfiName || t("dash_mfi_dashboard")}</p>
         </div>
         <LanguageSwitcher variant="dark" />
       </div>
@@ -280,7 +287,7 @@ function Sidebar({ tab, setTab, pendingLoans, dueOrOverdue, t }) {
         ))}
       </nav>
       <div className="px-6 py-4 border-t border-paper/10">
-        <p className="font-mono text-[10px] text-paper/30">v1.0 MFI portal</p>
+        <p className="font-mono text-[10px] text-paper/30">v1.1 MFI portal</p>
       </div>
     </aside>
   );

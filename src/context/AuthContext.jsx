@@ -44,7 +44,12 @@ export function AuthProvider({ children }) {
     if (session?.user) loadProfile(session.user.id);
   };
 
-  const signOut = () => supabase.auth.signOut();
+  const signOut = async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error("Sign out error:", error);
+  }
+};
 
   return (
     <AuthContext.Provider
