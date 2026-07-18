@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabaseClient";
 import { sendEmail } from "../lib/sendEmail";
 import bgImage from "../assets/images/pic1.png";
 
 export default function SignUp() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,21 +51,19 @@ export default function SignUp() {
 
   if (awaitingVerification) {
     return (
-      <AuthShell title="Verify your email" subtitle="One more step to activate your account">
+      <AuthShell title={t("verify_email_title")} subtitle={t("verify_email_sub")}>
         <div className="text-center">
           <div className="w-14 h-14 mx-auto rounded-full bg-gold/15 flex items-center justify-center mb-5">
             <span className="text-gold text-2xl">✉️</span>
           </div>
-          <p className="text-sm text-sage mb-2">We sent a verification link to</p>
+          <p className="text-sm text-sage mb-2">{t("sent_link_to")}</p>
           <p className="text-sm font-medium text-forest mb-6">{form.email}</p>
-          <p className="text-sm text-sage mb-6">
-            Click the link in that email to activate your account, then come back here and log in.
-          </p>
+          <p className="text-sm text-sage mb-6">{t("click_link_then_login")}</p>
           <Link
             to="/login/farmer"
             className="block w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition text-center"
           >
-            Go to login
+            {t("go_to_login")}
           </Link>
         </div>
       </AuthShell>
@@ -71,28 +71,28 @@ export default function SignUp() {
   }
 
   return (
-    <AuthShell title="Create your account" subtitle="Start your loan application in a few minutes">
+    <AuthShell title={t("auth_create_account")} subtitle={t("auth_signup_sub")}>
       <form onSubmit={handleSubmit} className="space-y-5">
-        <Field label="Full name" value={form.name} onChange={update("name")} required />
-        <Field label="Email" type="email" value={form.email} onChange={update("email")} required />
-        <Field label="Password" type="password" value={form.password} onChange={update("password")} required minLength={6} />
+        <Field label={t("field_full_name")} value={form.name} onChange={update("name")} required />
+        <Field label={t("field_email")} type="email" value={form.email} onChange={update("email")} required />
+        <Field label={t("field_password")} type="password" value={form.password} onChange={update("password")} required minLength={6} />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
           disabled={loading}
           className="w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition disabled:opacity-60"
         >
-          {loading ? "Creating account..." : "Create account"}
+          {loading ? t("creating_account") : t("create_account_btn")}
         </button>
       </form>
       <p className="text-center text-sm text-sage mt-6">
-        Already have an account?{" "}
+        {t("already_have_account")}{" "}
         <Link to="/login/farmer" className="text-forest font-medium underline underline-offset-4">
-          Log in
+          {t("log_in")}
         </Link>
       </p>
       <p className="text-center text-xs text-sage mt-3">
-        <Link to="/signup" className="underline underline-offset-4">Not a farmer? Switch portal</Link>
+        <Link to="/signup" className="underline underline-offset-4">{t("not_farmer_switch")}</Link>
       </p>
     </AuthShell>
   );

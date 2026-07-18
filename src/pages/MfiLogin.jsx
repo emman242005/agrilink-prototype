@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabaseClient";
 import { AuthShell, Field } from "./SignUp";
 import { createAndSendOtp } from "../lib/otp";
 import OtpVerifyModal from "../components/OtpVerifyModal";
 
 export default function MfiLogin() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,27 +58,27 @@ export default function MfiLogin() {
   };
 
   return (
-    <AuthShell title="MFI Login" subtitle="Access your lending dashboard">
+    <AuthShell title={t("mfi_login_title")} subtitle={t("mfi_login_sub")}>
       <form onSubmit={handleSubmit} className="space-y-5">
-        <Field label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-        <Field label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+        <Field label={t("field_email")} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+        <Field label={t("field_password")} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
           disabled={loading}
           className="w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition disabled:opacity-60"
         >
-          {loading ? "Logging in..." : "Log in"}
+          {loading ? t("logging_in") : t("log_in")}
         </button>
       </form>
       <p className="text-center text-sm text-sage mt-6">
-        New institution?{" "}
+        {t("new_institution")}{" "}
         <Link to="/mfi/signup" className="text-forest font-medium underline underline-offset-4">
-          Register here
+          {t("register_here")}
         </Link>
       </p>
       <p className="text-center text-xs text-sage mt-3">
-        <Link to="/login" className="underline underline-offset-4">Not an MFI? Switch portal</Link>
+        <Link to="/login" className="underline underline-offset-4">{t("not_mfi_switch")}</Link>
       </p>
 
       {pendingUser && (

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabaseClient";
 import { AuthShell, Field } from "./SignUp";
 
 export default function MfiSignUp() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     contactName: "", email: "", password: "",
     mfiName: "", region: "", phone: "", description: "",
@@ -69,15 +71,13 @@ export default function MfiSignUp() {
 
   if (awaitingVerification) {
     return (
-      <AuthShell title="Verify your email" subtitle="One more step to activate your MFI account">
+      <AuthShell title={t("verify_email_title")} subtitle={t("verify_email_sub")}>
         <div className="text-center">
-          <p className="text-sm text-sage mb-2">We sent a verification link to</p>
+          <p className="text-sm text-sage mb-2">{t("sent_link_to")}</p>
           <p className="text-sm font-medium text-forest mb-6">{form.email}</p>
-          <p className="text-sm text-sage mb-6">
-            Click the link in that email, then log in to complete your MFI registration.
-          </p>
+          <p className="text-sm text-sage mb-6">{t("click_link_then_login")}</p>
           <Link to="/mfi/login" className="block w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition text-center">
-            Go to MFI login
+            {t("register_here")}
           </Link>
         </div>
       </AuthShell>
@@ -85,18 +85,18 @@ export default function MfiSignUp() {
   }
 
   return (
-    <AuthShell title="Register your MFI" subtitle="Join AgriLink as a lending partner">
+    <AuthShell title={t("mfi_signup_title")} subtitle={t("mfi_signup_sub")}>
       <form onSubmit={handleSubmit} className="space-y-5">
-        <Field label="Institution name" value={form.mfiName} onChange={update("mfiName")} required />
-        <Field label="Region" value={form.region} onChange={update("region")} placeholder="e.g. Northwest Region, CM" required />
-        <Field label="Brief description (optional)" value={form.description} onChange={update("description")} placeholder="What your institution does" />
+        <Field label={t("field_institution_name")} value={form.mfiName} onChange={update("mfiName")} required />
+        <Field label={t("field_region")} value={form.region} onChange={update("region")} placeholder="e.g. Northwest Region, CM" required />
+        <Field label={t("field_description_optional")} value={form.description} onChange={update("description")} />
         <div className="border-t border-forest/10 pt-5">
-          <p className="text-xs font-medium text-sage mb-3">PRIMARY CONTACT</p>
+          <p className="text-xs font-medium text-sage mb-3 uppercase">{t("primary_contact")}</p>
           <div className="space-y-5">
-            <Field label="Contact full name" value={form.contactName} onChange={update("contactName")} required />
-            <Field label="Contact phone" value={form.phone} onChange={update("phone")} required />
-            <Field label="Email" type="email" value={form.email} onChange={update("email")} required />
-            <Field label="Password" type="password" value={form.password} onChange={update("password")} required minLength={6} />
+            <Field label={t("field_contact_name")} value={form.contactName} onChange={update("contactName")} required />
+            <Field label={t("field_contact_phone")} value={form.phone} onChange={update("phone")} required />
+            <Field label={t("field_email")} type="email" value={form.email} onChange={update("email")} required />
+            <Field label={t("field_password")} type="password" value={form.password} onChange={update("password")} required minLength={6} />
           </div>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -105,17 +105,17 @@ export default function MfiSignUp() {
           disabled={loading}
           className="w-full bg-forest text-paper font-medium py-3 rounded-lg hover:bg-forestdark transition disabled:opacity-60"
         >
-          {loading ? "Submitting..." : "Register institution"}
+          {loading ? t("submitting") : t("register_institution")}
         </button>
       </form>
       <p className="text-center text-sm text-sage mt-6">
-        Already registered?{" "}
+        {t("already_registered")}{" "}
         <Link to="/mfi/login" className="text-forest font-medium underline underline-offset-4">
-          Log in
+          {t("log_in")}
         </Link>
       </p>
       <p className="text-center text-xs text-sage mt-3">
-        <Link to="/signup" className="underline underline-offset-4">Not an MFI? Switch portal</Link>
+        <Link to="/signup" className="underline underline-offset-4">{t("not_mfi_switch")}</Link>
       </p>
     </AuthShell>
   );
